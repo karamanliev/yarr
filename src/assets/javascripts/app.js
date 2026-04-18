@@ -385,6 +385,7 @@ var vm = new Vue({
 
       api.items.get(newVal).then(function(item) {
         this.itemSelectedDetails = item
+        this.$nextTick(this.initHlsVideos)
         if (this.itemSelectedDetails.status == 'unread') {
           api.items.update(this.itemSelectedDetails.id, {status: 'read'}).then(function() {
             this.feedStats[this.itemSelectedDetails.feed_id].unread -= 1
@@ -416,6 +417,46 @@ var vm = new Vue({
     },
   },
   methods: {
+    initHlsVideos: function() {
+      var contentEl = this.$refs.content
+      if (!contentEl) return
+
+      var hlsVideos = []
+      contentEl.querySelectorAll('video').forEach(function(video) {
+        var src = video.getAttribute('src') || ''
+        if (!src) {
+          var source = video.querySelector('source')
+          if (source) src = source.getAttribute('src') || ''
+        }
+        if (src && src.indexOf('.m3u8') !== -1) {
+          hlsVideos.push({el: video, src: src})
+        }
+      })
+
+      if (!hlsVideos.length) return
+
+      function attachHls() {
+        hlsVideos.forEach(function(item) {
+          if (item.el.canPlayType('application/vnd.apple.mpegurl')) {
+            // Safari supports HLS natively
+            item.el.src = item.src
+          } else if (window.Hls && Hls.isSupported()) {
+            var hls = new Hls()
+            hls.loadSource(item.src)
+            hls.attachMedia(item.el)
+          }
+        })
+      }
+
+      if (window.Hls) {
+        attachHls()
+      } else {
+        var script = document.createElement('script')
+        script.src = './static/javascripts/hls.min.js'
+        script.onload = attachHls
+        document.head.appendChild(script)
+      }
+    },
     updateMetaTheme: function(theme) {
       document.querySelector("meta[name='theme-color']").content = this.themeColors[theme]
     },
