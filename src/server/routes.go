@@ -77,6 +77,7 @@ func (s *Server) handleStatic(c *router.Context) {
 		c.Out.WriteHeader(http.StatusNotFound)
 		return
 	}
+	c.Out.Header().Set("Cache-Control", "max-age=31536000, immutable")
 	http.StripPrefix(s.BasePath+"/static/", http.FileServer(http.FS(assets.FS))).ServeHTTP(c.Out, c.Req)
 }
 
