@@ -5,6 +5,7 @@ package assets
 import "embed"
 
 //go:embed *.html
+//go:embed themes.json
 //go:embed graphicarts
 //go:embed javascripts
 //go:embed stylesheets

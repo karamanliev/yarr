@@ -20,6 +20,7 @@ import (
 	"github.com/nkanaev/yarr/src/server/gzip"
 	"github.com/nkanaev/yarr/src/server/opml"
 	"github.com/nkanaev/yarr/src/server/router"
+	"github.com/nkanaev/yarr/src/server/theme"
 	"github.com/nkanaev/yarr/src/storage"
 	"github.com/nkanaev/yarr/src/worker"
 )
@@ -64,8 +65,11 @@ func (s *Server) handler() http.Handler {
 }
 
 func (s *Server) handleIndex(c *router.Context) {
+	settings := s.db.GetSettings()
 	c.HTML(http.StatusOK, assets.Template("index.html"), map[string]interface{}{
-		"settings":      s.db.GetSettings(),
+		"settings":      settings,
+		"theme":         theme.Resolve(settings),
+		"themes":        theme.Themes,
 		"authenticated": s.Username != "" && s.Password != "",
 	})
 }

@@ -6,8 +6,28 @@ html {
   font-size: 15px !important;
 }
 
+body.theme-light {
+  --bg-hover: rgba(0, 0, 0, 0.06);
+  --border: rgba(0, 0, 0, 0.12);
+  --shadow: rgba(0, 0, 0, 0.07);
+  --pre-border: rgba(0, 0, 0, 0.15);
+  --btn-default-active-bg: rgba(0, 0, 0, 0.04);
+  --loading-color: #6c757d;
+}
+
+body.theme-dark {
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.12);
+  --shadow: rgba(0, 0, 0, 0.4);
+  --pre-border: rgba(255, 255, 255, 0.15);
+  --btn-default-active-bg: rgba(255, 255, 255, 0.06);
+  --loading-color: #9aa0a6;
+}
+
 body {
   overscroll-behavior: none;
+  background-color: var(--bg);
+  color: var(--text);
 }
 
 /* bootstrap customizations */
@@ -17,7 +37,10 @@ body {
 }
 
 .form-control, .form-control:focus {
-  box-shadow: inset 0px 1px 1px rgba(0, 0, 0, 0.07) !important;
+  box-shadow: inset 0px 1px 1px var(--shadow) !important;
+  background-color: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 select.form-control {
@@ -25,7 +48,7 @@ select.form-control {
 }
 
 select.form-control:not([multiple]):not([size]) {
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 2px var(--shadow);
   padding-right: 1.2rem;
   cursor: pointer;
 }
@@ -53,7 +76,7 @@ select.form-control:not([multiple]):not([size]) {
 
 .settings-dropdown .dropdown-menu {
   padding: 0;
-  box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.07);
+  box-shadow: 0px 1px 5px var(--shadow);
   overflow: hidden;
   max-height: calc(100vh - 3rem);
   overflow-y: auto;
@@ -78,6 +101,12 @@ select.form-control:not([multiple]):not([size]) {
 
 .settings-dropdown .dropdown-item:focus {
   outline: none;
+  background-color: transparent;
+  color: var(--text);
+}
+
+.settings-dropdown .dropdown-item:focus:hover {
+  background-color: var(--bg-hover);
 }
 
 .settings-dropdown form:focus {
@@ -194,7 +223,7 @@ select.form-control:not([multiple]):not([size]) {
 .toolbar-search:hover,
 .selectgroup-label:hover,
 .dropdown-item:hover {
-  background-color: #f0f0f0;
+  background-color: var(--bg-hover);
 }
 
 .expanded {
@@ -220,7 +249,7 @@ select.form-control:not([multiple]):not([size]) {
 
 .loading::after {
   animation: rotate .5s infinite linear;
-  border: .1rem solid #6c757d;
+  border: .1rem solid var(--loading-color);
   border-radius: 50%;
   border-right-color: transparent;
   border-top-color: transparent;
@@ -242,23 +271,25 @@ select.form-control:not([multiple]):not([size]) {
 }
 
 .btn-default {
-  border: 1px solid #ced4da;
+  border: 1px solid var(--border);
   border-radius: .25rem;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 2px var(--shadow);
+  background-color: var(--bg);
+  color: var(--text);
 }
 
 .btn-default:active {
-  background: #f5f7f9;
+  background: var(--btn-default-active-bg);
   box-shadow: none;
 }
 
 .btn-outline {
-  border: 1px solid #ced4da;
+  border: 1px solid var(--border);
   border-radius: .25rem;
 }
 
 .btn-outline:hover {
-  background-color: #f8f9fa;
+  background-color: var(--bg-hover);
 }
 
 .toolbar {
@@ -339,7 +370,7 @@ select.form-control:not([multiple]):not([size]) {
 }
 
 .toolbar-search:hover, .toolbar-search:focus {
-  background-color: #f3f3f3;
+  background-color: var(--bg-hover);
   outline: none;
 }
 
@@ -402,7 +433,7 @@ select.form-control:not([multiple]):not([size]) {
 .content pre {
   overflow-x: auto;
   color: inherit;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--pre-border);
   border-radius: 3px;
   margin-left: -0.5rem;
   margin-right: -0.5rem;
@@ -415,7 +446,7 @@ select.form-control:not([multiple]):not([size]) {
 }
 
 .content blockquote {
-  border-left: 3px solid #22262a;
+  border-left: 3px solid var(--border);
   padding-left: 1rem;
 }
 
@@ -439,84 +470,59 @@ select.form-control:not([multiple]):not([size]) {
   margin-bottom: 1rem;
 }
 
-/* theme: light */
-
-button.theme-light {
-  background-color: #fff !important;
-}
-
 a,
 .btn-link:hover {
-  color: #0080d4;
+  color: var(--accent);
 }
 
 .toolbar-item.active,
 .dropdown-item.active,
 .dropdown-item:active,
 .selectgroup input:checked + .selectgroup-label {
-  color: #fff;
-  background-color: #0080d4 !important;
+  color: var(--accent-text);
+  background-color: var(--accent) !important;
 }
 
 .btn-default:focus,
 .form-control:focus {
-  border-color: #0080d4;
+  border-color: var(--accent);
 }
 
-/* theme: sepia */
-
-.theme-sepia,
-.theme-sepia .btn-default,
-.theme-sepia .dropdown-menu,
-.theme-sepia .form-control,
-.theme-sepia .modal-content,
-.theme-sepia .toolbar-search {
-  background-color: #f4f0e5 !important;
-}
-.theme-sepia .content hr,
-.theme-sepia .content pre,
-.theme-sepia .border-right,
-.theme-sepia .border-top {
-  border-color: #e0d6ba !important;
-}
-.theme-sepia .selectgroup-label:hover,
-.theme-sepia .toolbar-item:hover,
-.theme-sepia .toolbar-search:hover,
-.theme-sepia .dropdown-item:hover,
-.theme-sepia .toolbar-search:focus {
-  background-color: #e0d6ba;
+.dropdown-menu,
+.dropdown-item,
+.modal-content,
+.toolbar-search {
+  background-color: var(--bg);
+  color: var(--text);
 }
 
-/* theme: night */
-
-.theme-night,
-.theme-night .btn-default,
-.theme-night .dropdown-menu,
-.theme-night .dropdown-item,
-.theme-night .form-control,
-.theme-night .modal-content,
-.theme-night .toolbar-search {
-  color: #d1d1d1;
-  background-color: #0e0e0e;
-}
-.theme-night .content hr,
-.theme-night .content pre,
-.theme-night .border-right,
-.theme-night .border-top,
-.theme-night .dropdown-divider {
-  border-color: #1a1a1a !important;
-}
-.theme-night .selectgroup-label:hover,
-.theme-night .dropdown-item:hover,
-.theme-night .toolbar-item:hover,
-.theme-night .toolbar-search:hover,
-.theme-night .toolbar-search:focus {
-  background-color: #1a1a1a;
+.dropdown-menu,
+.modal-content {
+  border-color: var(--border);
 }
 
-.theme-night .dropdown-menu,
-.theme-night .modal-content {
-  border-color: #1a1a1a;
+hr,
+.dropdown-divider,
+.border-right,
+.border-top,
+.border-bottom,
+.border-left {
+  border-color: var(--border) !important;
+}
+
+.theme-swatch-btn {
+  height: 2rem;
+  padding: 0 !important;
+  border: none;
+}
+
+.theme-swatch-btn:hover {
+  background-color: inherit;
+  filter: brightness(1.08);
+}
+
+body.theme-light .theme-swatch-btn:hover {
+  filter: brightness(0.96);
 }
 
 /* animation */

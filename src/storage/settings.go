@@ -7,15 +7,19 @@ import (
 
 func settingsDefaults() map[string]interface{} {
 	return map[string]interface{}{
-		"filter":            "",
-		"feed":              "",
-		"feed_list_width":   300,
-		"item_list_width":   300,
-		"sort_newest_first": true,
-		"theme_name":        "light",
-		"theme_font":        "",
-		"theme_size":        1,
-		"refresh_rate":      0,
+		"filter":               "",
+		"feed":                 "",
+		"feed_list_width":      300,
+		"item_list_width":      300,
+		"sort_newest_first":    true,
+		"theme_font":           "",
+		"theme_size":           1,
+		"theme_auto":           false,
+		"theme_mode":           "dark",
+		"theme_light_variant":  "white",
+		"theme_dark_variant":   "black",
+		"theme_accent":         "blue",
+		"refresh_rate":         0,
 	}
 }
 
@@ -48,6 +52,7 @@ func (s *Storage) GetSettingsValueInt64(key string) int64 {
 }
 
 func (s *Storage) GetSettings() map[string]interface{} {
+	defaults := settingsDefaults()
 	result := settingsDefaults()
 	rows, err := s.db.Query(`select key, val from settings;`)
 	if err != nil {
@@ -64,6 +69,9 @@ func (s *Storage) GetSettings() map[string]interface{} {
 			log.Print(err)
 			continue
 		}
+		if _, ok := defaults[key]; !ok {
+			continue
+		}
 		result[key] = valDecoded
 	}
 	return result
@@ -72,7 +80,7 @@ func (s *Storage) GetSettings() map[string]interface{} {
 func (s *Storage) UpdateSettings(kv map[string]interface{}) bool {
 	defaults := settingsDefaults()
 	for key, val := range kv {
-		if defaults[key] == nil {
+		if _, ok := defaults[key]; !ok {
 			continue
 		}
 		valEncoded, err := json.Marshal(val)

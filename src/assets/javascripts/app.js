@@ -211,7 +211,8 @@ var vm = new Vue({
     api.feeds.list_errors().then(function(errors) {
       vm.feed_errors = errors
     })
-    this.updateMetaTheme(app.settings.theme_name)
+    this.applyTheme()
+    this.initAutoThemeListener()
   },
   data: function() {
     var s = app.settings
@@ -246,15 +247,17 @@ var vm = new Vue({
       'fonts': ['', 'serif', 'monospace'],
       'feedStats': {},
       'theme': {
-        'name': s.theme_name,
         'font': s.theme_font,
         'size': s.theme_size,
+        'auto': !!s.theme_auto,
+        'mode': s.theme_mode || 'dark',
+        'lightVariant': s.theme_light_variant || 'white',
+        'darkVariant': s.theme_dark_variant || 'black',
+        'accent': s.theme_accent || 'blue',
       },
-      'themeColors': {
-        'night': '#0e0e0e',
-        'sepia': '#f4f0e5',
-        'light': '#fff',
-      },
+      'lightVariants': window.yarrThemes.light,
+      'darkVariants': window.yarrThemes.dark,
+      'accents': window.yarrThemes.accents,
       'refreshRate': s.refresh_rate,
       'authenticated': app.authenticated,
       'feed_errors': {},
@@ -336,12 +339,15 @@ var vm = new Vue({
     'theme': {
       deep: true,
       handler: function(theme) {
-        this.updateMetaTheme(theme.name)
-        document.body.classList.value = 'theme-' + theme.name
+        this.applyTheme()
         api.settings.update({
-          theme_name: theme.name,
           theme_font: theme.font,
           theme_size: theme.size,
+          theme_auto: theme.auto,
+          theme_mode: theme.mode,
+          theme_light_variant: theme.lightVariant,
+          theme_dark_variant: theme.darkVariant,
+          theme_accent: theme.accent,
         })
       },
     },
@@ -457,8 +463,51 @@ var vm = new Vue({
         document.head.appendChild(script)
       }
     },
-    updateMetaTheme: function(theme) {
-      document.querySelector("meta[name='theme-color']").content = this.themeColors[theme]
+    contrastFor: function(hex) {
+      return window.yarrContrastText(hex)
+    },
+    getActiveMode: function() {
+      if (this.theme.auto && window.matchMedia) {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      }
+      return this.theme.mode
+    },
+    applyTheme: function() {
+      var mode = this.getActiveMode()
+      var resolved = window.yarrResolveTheme(
+        mode,
+        this.theme.lightVariant,
+        this.theme.darkVariant,
+        this.theme.accent
+      )
+      var root = document.documentElement
+      root.style.setProperty('--bg', resolved.bg)
+      root.style.setProperty('--text', resolved.text)
+      root.style.setProperty('--accent', resolved.accent)
+      root.style.setProperty('--accent-text', resolved.accentText)
+      document.body.classList.value = 'theme-' + resolved.mode
+      var meta = document.querySelector("meta[name='theme-color']")
+      if (meta) meta.content = resolved.bg
+    },
+    initAutoThemeListener: function() {
+      if (!window.matchMedia) return
+      var mq = window.matchMedia('(prefers-color-scheme: dark)')
+      var handler = function() {
+        if (this.theme.auto) this.applyTheme()
+      }.bind(this)
+      if (mq.addEventListener) {
+        mq.addEventListener('change', handler)
+      } else if (mq.addListener) {
+        mq.addListener(handler)  // Safari < 14
+      }
+    },
+    pickLightVariant: function(key) {
+      this.theme.lightVariant = key
+      if (!this.theme.auto) this.theme.mode = 'light'
+    },
+    pickDarkVariant: function(key) {
+      this.theme.darkVariant = key
+      if (!this.theme.auto) this.theme.mode = 'dark'
     },
     refreshStats: function(loopMode) {
       return api.status().then(function(data) {

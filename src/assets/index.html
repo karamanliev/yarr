@@ -8,15 +8,24 @@
     <link rel="icon" href="./static/graphicarts/favicon.svg" type="image/svg+xml">
     <link rel="alternate icon" href="./static/graphicarts/favicon.png" type="image/png">
     <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="" />
+    <meta name="theme-color" content="{% .theme.bg %}" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style id="theme-init">
+        :root {
+            --bg: {% .theme.bg %};
+            --text: {% .theme.text %};
+            --accent: {% .theme.accent %};
+            --accent-text: {% .theme.accentText %};
+        }
+    </style>
     <script>
         window.app = window.app || {}
         window.app.settings = {% .settings %}
         window.app.authenticated = {% .authenticated %}
+        window.yarrThemes = {% .themes %}
     </script>
 </head>
-<body class="theme-{% .settings.theme_name %}">
+<body class="theme-{% .theme.mode %}">
     <div id="app" class="d-flex" :class="{'feed-selected': feedSelected !== null, 'item-selected': itemSelected !== null}" v-cloak>
         <!-- feed list -->
         <div id="col-feed-list" class="vh-100 position-relative d-flex flex-column border-right flex-shrink-0" :style="{width: feedListWidth+'px'}">
@@ -63,15 +72,48 @@
 
                     <div class="dropdown-divider"></div>
 
-                    <header class="dropdown-header" role="heading" aria-level="2">Theme</header>
+                    <button class="dropdown-item d-flex align-items-center" @click.stop="theme.auto = !theme.auto" :aria-pressed="theme.auto">
+                        <span class="icon mr-2" v-if="theme.auto">{% inline "circle-full.svg" %}</span>
+                        <span class="icon mr-2" v-else>{% inline "circle.svg" %}</span>
+                        Follow system
+                    </button>
+
+                    <header class="dropdown-header" role="heading" aria-level="2">Light</header>
                     <div class="row text-center m-0">
-                        <button class="btn btn-link col-4 px-0 rounded-0"
-                                :class="'theme-'+t"
-                                :aria-label="t"
-                                :aria-pressed="theme.name == t"
-                                @click.stop="theme.name = t"
-                                v-for="t in ['light', 'sepia', 'night']">
-                            <span class="icon" v-if="theme.name == t">{% inline "check.svg" %}</span>
+                        <button class="btn btn-link col-4 px-0 rounded-0 theme-swatch-btn"
+                                :style="{backgroundColor: entry.value, color: contrastFor(entry.value)}"
+                                :aria-label="entry.key"
+                                :aria-pressed="theme.lightVariant == entry.key"
+                                :title="entry.key"
+                                @click.stop="pickLightVariant(entry.key)"
+                                v-for="entry in lightVariants">
+                            <span class="icon" v-if="theme.lightVariant == entry.key && (theme.auto || theme.mode == 'light')">{% inline "check.svg" %}</span>
+                        </button>
+                    </div>
+
+                    <header class="dropdown-header" role="heading" aria-level="2">Dark</header>
+                    <div class="row text-center m-0">
+                        <button class="btn btn-link col-4 px-0 rounded-0 theme-swatch-btn"
+                                :style="{backgroundColor: entry.value, color: contrastFor(entry.value)}"
+                                :aria-label="entry.key"
+                                :aria-pressed="theme.darkVariant == entry.key"
+                                :title="entry.key"
+                                @click.stop="pickDarkVariant(entry.key)"
+                                v-for="entry in darkVariants">
+                            <span class="icon" v-if="theme.darkVariant == entry.key && (theme.auto || theme.mode == 'dark')">{% inline "check.svg" %}</span>
+                        </button>
+                    </div>
+
+                    <header class="dropdown-header" role="heading" aria-level="2">Accent</header>
+                    <div class="row text-center m-0">
+                        <button class="btn btn-link col-3 px-0 rounded-0 theme-swatch-btn"
+                                :style="{backgroundColor: entry.value, color: contrastFor(entry.value)}"
+                                :aria-label="entry.key"
+                                :aria-pressed="theme.accent == entry.key"
+                                :title="entry.key"
+                                @click.stop="theme.accent = entry.key"
+                                v-for="entry in accents">
+                            <span class="icon" v-if="theme.accent == entry.key">{% inline "check.svg" %}</span>
                         </button>
                     </div>
 
@@ -441,6 +483,7 @@
     <script src="./static/javascripts/vue.min.js"></script>
     <!-- internal -->
     <script src="./static/javascripts/api.js"></script>
+    <script src="./static/javascripts/themes.js"></script>
     <script src="./static/javascripts/app.js"></script>
     <script src="./static/javascripts/key.js"></script>
 </body>

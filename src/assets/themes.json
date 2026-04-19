@@ -1,0 +1,18 @@
+{
+  "light": [
+    { "key": "white", "value": "#ffffff" },
+    { "key": "paper", "value": "#e8e8e8" },
+    { "key": "sepia", "value": "#f4f0e5" }
+  ],
+  "dark": [
+    { "key": "black",    "value": "#0e0e0e" },
+    { "key": "charcoal", "value": "#2a2a2a" },
+    { "key": "slate",    "value": "#1a2638" }
+  ],
+  "accents": [
+    { "key": "blue",   "value": "#3b82f6" },
+    { "key": "teal",   "value": "#14b8a6" },
+    { "key": "purple", "value": "#a855f7" },
+    { "key": "rose",   "value": "#f43f5e" }
+  ]
+}

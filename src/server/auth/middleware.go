@@ -6,6 +6,7 @@ import (
 
 	"github.com/nkanaev/yarr/src/assets"
 	"github.com/nkanaev/yarr/src/server/router"
+	"github.com/nkanaev/yarr/src/server/theme"
 	"github.com/nkanaev/yarr/src/storage"
 )
 
@@ -48,15 +49,19 @@ func (m *Middleware) Handler(c *router.Context) {
 			c.Redirect(rootUrl)
 			return
 		} else {
+			settings := m.DB.GetSettings()
 			c.HTML(http.StatusOK, assets.Template("login.html"), map[string]interface{}{
 				"username": username,
 				"error":    "Invalid username/password",
-				"settings": m.DB.GetSettings(),
+				"settings": settings,
+				"theme":    theme.Resolve(settings),
 			})
 			return
 		}
 	}
+	settings := m.DB.GetSettings()
 	c.HTML(http.StatusOK, assets.Template("login.html"), map[string]interface{}{
-		"settings": m.DB.GetSettings(),
+		"settings": settings,
+		"theme":    theme.Resolve(settings),
 	})
 }

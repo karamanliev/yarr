@@ -8,7 +8,14 @@
     <link rel="icon" href="./static/graphicarts/favicon.svg" type="image/svg+xml">
     <link rel="alternate icon" href="./static/graphicarts/favicon.png" type="image/png">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="theme-color" content="{% .theme.bg %}" />
     <style>
+        :root {
+            --bg: {% .theme.bg %};
+            --text: {% .theme.text %};
+            --accent: {% .theme.accent %};
+            --accent-text: {% .theme.accentText %};
+        }
         form {
             max-width: 300px;
             margin: 0 auto;
@@ -22,7 +29,7 @@
         }
     </style>
 </head>
-<body class="theme-{% .settings.theme_name %}">
+<body class="theme-{% .theme.mode %}">
     <form action="" method="post">
         <img src="./static/graphicarts/anchor.svg" alt="">
         {% if .error %}
