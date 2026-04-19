@@ -20,6 +20,11 @@ func settingsDefaults() map[string]interface{} {
 		"theme_dark_variant":   "black",
 		"theme_accent":         "blue",
 		"refresh_rate":         0,
+		"ai_endpoint":                     "",
+		"ai_api_key":                      "",
+		"ai_model":                        "",
+		"ai_system_prompt_custom_enabled": false,
+		"ai_system_prompt_custom":         "",
 	}
 }
 

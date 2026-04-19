@@ -162,6 +162,11 @@
                         Export
                     </a>
                     <div class="dropdown-divider"></div>
+                    <button class="dropdown-item" @click="showSettings('ai')">
+                        <span class="icon mr-1">{% inline "sparkles.svg" %}</span>
+                        AI Summary
+                    </button>
+                    <div class="dropdown-divider"></div>
                     <button class="dropdown-item" @click="showSettings('shortcuts')">
                         <span class="icon mr-1">{% inline "help-circle.svg" %}</span>
                         Shortcuts
@@ -372,6 +377,13 @@
                     </div>
                 </dropdown>
                 <button class="toolbar-item"
+                        v-if="aiConfigured"
+                        :class="{active: itemSelectedSummary !== null}"
+                        @click="toggleSummary()"
+                        title="AI Summary">
+                    <span class="icon" :class="{'icon-loading': summaryInProgress}">{% inline "sparkles.svg" %}</span>
+                </button>
+                <button class="toolbar-item"
                         :class="{active: itemSelectedReadability}"
                         @click="toggleReadability()"
                         title="Read Here">
@@ -398,13 +410,23 @@
                  :style="{'font-size': theme.size + 'rem'}">
                 <div class="content-wrapper">
                     <h1><b>{{ itemSelectedDetails.title || 'untitled' }}</b></h1>
-                    <div class="text-muted">
-                        <div>
-                            <span class="cursor-pointer" @click="feedSelected = 'feed:'+(feedsById[itemSelectedDetails.feed_id] || {}).id">
-                                {{ (feedsById[itemSelectedDetails.feed_id] || {}).title }}
-                            </span>
+                    <div class="d-flex align-items-end">
+                        <div class="text-muted flex-grow-1">
+                            <div>
+                                <span class="cursor-pointer" @click="feedSelected = 'feed:'+(feedsById[itemSelectedDetails.feed_id] || {}).id">
+                                    {{ (feedsById[itemSelectedDetails.feed_id] || {}).title }}
+                                </span>
+                            </div>
+                            <time>{{ formatDate(itemSelectedDetails.date) }}</time>
                         </div>
-                        <time>{{ formatDate(itemSelectedDetails.date) }}</time>
+                        <button class="btn btn-link btn-sm d-flex align-items-center flex-shrink-0 ml-2 text-muted text-decoration-none"
+                                v-if="itemSelectedSummary !== null"
+                                @click="regenerateSummary()"
+                                :disabled="summaryInProgress"
+                                title="Regenerate summary">
+                            <span class="icon mr-1" :class="{'icon-loading': summaryInProgress}">{% inline "rotate-cw.svg" %}</span>
+                            Regenerate summary
+                        </button>
                     </div>
                     <hr>
                     <div v-if="!itemSelectedReadability">
@@ -452,6 +474,41 @@
                         </label>
                     </div>
                     <button class="btn btn-block btn-default mt-3" :class="{loading: loading.newfeed}" type="submit">Add</button>
+                </form>
+            </div>
+            <div v-else-if="settings=='ai'">
+                <p class="cursor-default"><b>AI Summary Settings</b></p>
+                <form @submit.prevent="settings = ''" class="mt-4">
+                    <label for="ai-endpoint">Endpoint</label>
+                    <input id="ai-endpoint" type="url" class="form-control"
+                           placeholder="https://api.openai.com/v1"
+                           autocomplete="off"
+                           v-model="aiSettings.endpoint">
+
+                    <label for="ai-api-key" class="mt-3">API Key</label>
+                    <input id="ai-api-key" type="password" class="form-control"
+                           placeholder="sk-..."
+                           autocomplete="off"
+                           v-model="aiSettings.api_key">
+
+                    <label for="ai-model" class="mt-3">Model</label>
+                    <input id="ai-model" type="text" class="form-control"
+                           placeholder="gpt-4o-mini"
+                           autocomplete="off"
+                           v-model="aiSettings.model">
+
+                    <label class="mt-3 d-flex align-items-center cursor-pointer" style="user-select: none">
+                        <input type="checkbox" class="mr-2"
+                               v-model="aiSettings.system_prompt_custom_enabled">
+                        Use custom system prompt
+                    </label>
+                    <textarea v-if="aiSettings.system_prompt_custom_enabled"
+                              class="form-control mt-2"
+                              rows="6"
+                              placeholder="Leave empty to use the default summarization prompt."
+                              v-model="aiSettings.system_prompt_custom"></textarea>
+
+                    <button class="btn btn-block btn-default mt-3" type="submit">Done</button>
                 </form>
             </div>
             <div v-else-if="settings=='shortcuts'">

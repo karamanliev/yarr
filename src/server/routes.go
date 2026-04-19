@@ -54,6 +54,7 @@ func (s *Server) handler() http.Handler {
 	r.For("/api/feeds/:id", s.handleFeed)
 	r.For("/api/items", s.handleItemList)
 	r.For("/api/items/:id", s.handleItem)
+	r.For("/api/items/:id/summary", s.handleItemSummary)
 	r.For("/api/settings", s.handleSettings)
 	r.For("/opml/import", s.handleOPMLImport)
 	r.For("/opml/export", s.handleOPMLExport)
@@ -412,14 +413,28 @@ func (s *Server) handleItemList(c *router.Context) {
 	}
 }
 
+// aiAPIKeyMask is the sentinel value returned in GET /api/settings when an
+// API key is configured. On PUT, this sentinel is treated as "do not change".
+const aiAPIKeyMask = "***"
+
 func (s *Server) handleSettings(c *router.Context) {
 	if c.Req.Method == "GET" {
-		c.JSON(http.StatusOK, s.db.GetSettings())
+		settings := s.db.GetSettings()
+		if key, ok := settings["ai_api_key"].(string); ok && key != "" {
+			settings["ai_api_key"] = aiAPIKeyMask
+		}
+		c.JSON(http.StatusOK, settings)
 	} else if c.Req.Method == "PUT" {
 		settings := make(map[string]interface{})
 		if err := json.NewDecoder(c.Req.Body).Decode(&settings); err != nil {
 			c.Out.WriteHeader(http.StatusBadRequest)
 			return
+		}
+		// Preserve existing API key when client sends the mask sentinel.
+		if v, ok := settings["ai_api_key"]; ok {
+			if s, ok := v.(string); ok && s == aiAPIKeyMask {
+				delete(settings, "ai_api_key")
+			}
 		}
 		if s.db.UpdateSettings(settings) {
 			if _, ok := settings["refresh_rate"]; ok {
@@ -429,6 +444,87 @@ func (s *Server) handleSettings(c *router.Context) {
 		} else {
 			c.Out.WriteHeader(http.StatusBadRequest)
 		}
+	}
+}
+
+func (s *Server) handleItemSummary(c *router.Context) {
+	id, err := c.VarInt64("id")
+	if err != nil {
+		c.Out.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	switch c.Req.Method {
+	case "POST":
+		cfg, ok := buildAIConfig(s.db.GetSettings())
+		if !ok {
+			c.JSON(http.StatusBadRequest, map[string]string{"error": "AI summarization is not configured."})
+			return
+		}
+
+		item := s.db.GetItem(id)
+		if item == nil {
+			c.Out.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		// Acquire article text: prefer readability-extracted text from the
+		// link, fall back to the feed's own content.
+		var article string
+		if !htmlutil.IsAPossibleLink(item.Link) {
+			if feed := s.db.GetFeed(item.FeedId); feed != nil {
+				item.Link = htmlutil.AbsoluteUrl(item.Link, feed.Link)
+			}
+		}
+		if item.Link != "" {
+			if content, err := extractReadable(item.Link); err == nil {
+				article = htmlutil.ExtractText(content)
+			}
+		}
+		if strings.TrimSpace(article) == "" {
+			article = htmlutil.ExtractText(item.Content)
+		}
+		if strings.TrimSpace(article) == "" {
+			c.JSON(http.StatusBadRequest, map[string]string{"error": "No article content available to summarize."})
+			return
+		}
+
+		flusher, ok := c.Out.(http.Flusher)
+		if !ok {
+			c.Out.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		c.Out.Header().Set("Content-Type", "text/event-stream")
+		c.Out.Header().Set("Cache-Control", "no-cache")
+		c.Out.Header().Set("Connection", "keep-alive")
+		c.Out.Header().Set("X-Accel-Buffering", "no")
+		c.Out.WriteHeader(http.StatusOK)
+		flusher.Flush()
+
+		writeSSE := func(event string, data interface{}) {
+			payload, jerr := json.Marshal(data)
+			if jerr != nil {
+				return
+			}
+			fmt.Fprintf(c.Out, "event: %s\ndata: %s\n\n", event, payload)
+			flusher.Flush()
+		}
+
+		full, aerr := streamSummarize(c.Req.Context(), cfg, article, func(delta string) {
+			writeSSE("delta", delta)
+		})
+		if aerr != nil {
+			if c.Req.Context().Err() == nil {
+				log.Printf("ai summary for item %d failed: %v", id, aerr)
+				writeSSE("error", map[string]string{"message": aerr.Error()})
+			}
+			return
+		}
+		s.db.UpdateItemSummary(id, full)
+		writeSSE("done", map[string]string{})
+	default:
+		c.Out.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
@@ -506,37 +602,42 @@ func (s *Server) handleOPMLExport(c *router.Context) {
 	}
 }
 
-func (s *Server) handlePageCrawl(c *router.Context) {
-	url := c.Req.URL.Query().Get("url")
-
-	if newUrl := silo.RedirectURL(url); newUrl != "" {
-		url = newUrl
+// extractReadable fetches a URL and returns the readability-extracted,
+// sanitized HTML content. Respects silo redirects and video iframe silos.
+// Returns an error for blocked internal IPs or upstream failures.
+func extractReadable(pageURL string) (string, error) {
+	if newUrl := silo.RedirectURL(pageURL); newUrl != "" {
+		pageURL = newUrl
 	}
-	if content := silo.VideoIFrame(url); content != "" {
-		c.JSON(http.StatusOK, map[string]string{
-			"content": sanitizer.Sanitize(url, content),
-		})
-		return
+	if content := silo.VideoIFrame(pageURL); content != "" {
+		return sanitizer.Sanitize(pageURL, content), nil
 	}
-	if isInternalFromURL(url) {
-		log.Printf("attempt to access internal IP %s from %s", url, c.Req.RemoteAddr)
-		return
+	if isInternalFromURL(pageURL) {
+		return "", fmt.Errorf("attempt to access internal IP %s", pageURL)
 	}
 
-	body, err := worker.GetBody(url)
+	body, err := worker.GetBody(pageURL)
 	if err != nil {
-		log.Print(err)
-		c.Out.WriteHeader(http.StatusBadRequest)
-		return
+		return "", err
 	}
 	content, err := readability.ExtractContent(strings.NewReader(body))
 	if err != nil {
+		return "", err
+	}
+	return sanitizer.Sanitize(pageURL, content), nil
+}
+
+func (s *Server) handlePageCrawl(c *router.Context) {
+	url := c.Req.URL.Query().Get("url")
+
+	content, err := extractReadable(url)
+	if err != nil {
+		log.Print(err)
 		c.JSON(http.StatusOK, map[string]string{
 			"content": "error: " + err.Error(),
 		})
 		return
 	}
-	content = sanitizer.Sanitize(url, content)
 	c.JSON(http.StatusOK, map[string]string{
 		"content": content,
 	})

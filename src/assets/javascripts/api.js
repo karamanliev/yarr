@@ -83,6 +83,59 @@
       mark_read: function(query) {
         return api('put', './api/items' + param(query))
       },
+      summary_stream: function(id, handlers) {
+        handlers = handlers || {}
+        var controller = handlers.signal ? null : new AbortController()
+        var signal = handlers.signal || controller.signal
+        xfetch('./api/items/' + id + '/summary', {
+          method: 'post',
+          headers: {'Accept': 'text/event-stream'},
+          signal: signal,
+        }).then(function(res) {
+          if (!res.ok || !res.body) {
+            return res.json().catch(function() { return {error: 'Request failed'} }).then(function(data) {
+              if (handlers.onError) handlers.onError(new Error(data.error || 'Request failed'))
+            })
+          }
+          var reader = res.body.getReader()
+          var decoder = new TextDecoder()
+          var buf = ''
+          var pump = function() {
+            return reader.read().then(function(result) {
+              if (result.done) {
+                if (handlers.onDone) handlers.onDone()
+                return
+              }
+              buf += decoder.decode(result.value, {stream: true})
+              var frames = buf.split('\n\n')
+              buf = frames.pop()
+              frames.forEach(function(frame) {
+                var event = 'message'
+                var data = ''
+                frame.split('\n').forEach(function(line) {
+                  if (line.indexOf('event:') === 0) event = line.slice(6).trim()
+                  else if (line.indexOf('data:') === 0) data += line.slice(5).trim()
+                })
+                var parsed
+                try { parsed = JSON.parse(data) } catch (e) { parsed = data }
+                if (event === 'delta' && handlers.onDelta) {
+                  handlers.onDelta(parsed)
+                } else if (event === 'done' && handlers.onDone) {
+                  handlers.onDone()
+                } else if (event === 'error' && handlers.onError) {
+                  handlers.onError(new Error((parsed && parsed.message) || 'stream error'))
+                }
+              })
+              return pump()
+            })
+          }
+          return pump()
+        }).catch(function(err) {
+          if (err && err.name === 'AbortError') return
+          if (handlers.onError) handlers.onError(err)
+        })
+        return controller
+      },
     },
     settings: {
       get: function() {

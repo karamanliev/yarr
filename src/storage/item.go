@@ -78,6 +78,7 @@ type Item struct {
 	Date       time.Time  `json:"date"`
 	Status     ItemStatus `json:"status"`
 	MediaLinks MediaLinks `json:"media_links"`
+	AISummary  string     `json:"ai_summary,omitempty"`
 }
 
 type ItemFilter struct {
@@ -297,12 +298,12 @@ func (s *Storage) GetItem(id int64) *Item {
 	err := s.db.QueryRow(`
 		select
 			i.id, i.guid, i.feed_id, i.title, i.link, i.content,
-			i.date, i.status, i.media_links
+			i.date, i.status, i.media_links, i.ai_summary
 		from items i
 		where i.id = ?
 	`, id).Scan(
 		&i.Id, &i.GUID, &i.FeedId, &i.Title, &i.Link, &i.Content,
-		&i.Date, &i.Status, &i.MediaLinks,
+		&i.Date, &i.Status, &i.MediaLinks, &i.AISummary,
 	)
 	if err != nil {
 		log.Print(err)
@@ -313,6 +314,14 @@ func (s *Storage) GetItem(id int64) *Item {
 
 func (s *Storage) UpdateItemStatus(item_id int64, status ItemStatus) bool {
 	_, err := s.db.Exec(`update items set status = ? where id = ?`, status, item_id)
+	return err == nil
+}
+
+func (s *Storage) UpdateItemSummary(item_id int64, summary string) bool {
+	_, err := s.db.Exec(`update items set ai_summary = ? where id = ?`, summary, item_id)
+	if err != nil {
+		log.Print(err)
+	}
 	return err == nil
 }
 

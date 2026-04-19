@@ -18,6 +18,7 @@ var migrations = []func(*sql.Tx) error{
 	m08_normalize_datetime,
 	m09_change_item_index,
 	m10_add_item_medialinks,
+	m11_add_item_ai_summary,
 }
 
 var maxVersion = int64(len(migrations))
@@ -303,6 +304,14 @@ func m09_change_item_index(tx *sql.Tx) error {
 	sql := `
         drop index if exists idx_item_status;
 		create index if not exists idx_item__date_id_status on items(date,id,status);
+	`
+	_, err := tx.Exec(sql)
+	return err
+}
+
+func m11_add_item_ai_summary(tx *sql.Tx) error {
+	sql := `
+		alter table items add column ai_summary text not null default '';
 	`
 	_, err := tx.Exec(sql)
 	return err

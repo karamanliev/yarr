@@ -2,6 +2,107 @@
 
 var TITLE = document.title
 
+// Tiny, safe Markdown renderer for AI summary output. Escapes HTML first,
+// then re-introduces a controlled set of tags. Not a full CommonMark impl.
+window.yarrRenderMarkdown = (function() {
+  function escapeHtml(s) {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  }
+  function safeUrl(url) {
+    var u = String(url || '').trim()
+    if (/^(https?:|mailto:)/i.test(u)) return u
+    return '#'
+  }
+  function inline(text) {
+    // inline code
+    text = text.replace(/`([^`]+?)`/g, function(_, c) { return '<code>' + c + '</code>' })
+    // bold **x** / __x__
+    text = text.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
+    text = text.replace(/__([^_]+?)__/g, '<strong>$1</strong>')
+    // italic *x* / _x_
+    text = text.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
+    text = text.replace(/(^|[^_])_([^_\n]+?)_(?!_)/g, '$1<em>$2</em>')
+    // links [text](url)
+    text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function(_, t, u) {
+      return '<a href="' + safeUrl(u) + '" rel="noopener noreferrer" target="_blank">' + t + '</a>'
+    })
+    return text
+  }
+  return function render(src) {
+    if (!src) return ''
+    src = String(src).replace(/\r\n?/g, '\n')
+    // Extract fenced code blocks first.
+    var codeBlocks = []
+    src = src.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, function(_, lang, code) {
+      codeBlocks.push('<pre><code>' + escapeHtml(code) + '</code></pre>')
+      return '\u0000CODE' + (codeBlocks.length - 1) + '\u0000'
+    })
+    src = escapeHtml(src)
+
+    var lines = src.split('\n')
+    var out = []
+    var i = 0
+    while (i < lines.length) {
+      var line = lines[i]
+      // heading
+      var h = /^(#{1,6})\s+(.+)$/.exec(line)
+      if (h) {
+        var level = h[1].length
+        out.push('<h' + level + '>' + inline(h[2]) + '</h' + level + '>')
+        i++
+        continue
+      }
+      // unordered list
+      if (/^[-*]\s+/.test(line)) {
+        var items = []
+        while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+          items.push('<li>' + inline(lines[i].replace(/^[-*]\s+/, '')) + '</li>')
+          i++
+        }
+        out.push('<ul>' + items.join('') + '</ul>')
+        continue
+      }
+      // ordered list
+      if (/^\d+\.\s+/.test(line)) {
+        var oitems = []
+        while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+          oitems.push('<li>' + inline(lines[i].replace(/^\d+\.\s+/, '')) + '</li>')
+          i++
+        }
+        out.push('<ol>' + oitems.join('') + '</ol>')
+        continue
+      }
+      // blank line: paragraph separator
+      if (line.trim() === '') {
+        i++
+        continue
+      }
+      // paragraph: accumulate until blank line or block element
+      var para = [line]
+      i++
+      while (i < lines.length) {
+        var l = lines[i]
+        if (l.trim() === '') break
+        if (/^(#{1,6})\s+/.test(l)) break
+        if (/^[-*]\s+/.test(l)) break
+        if (/^\d+\.\s+/.test(l)) break
+        para.push(l)
+        i++
+      }
+      out.push('<p>' + inline(para.join('<br>')) + '</p>')
+    }
+
+    var html = out.join('\n')
+    // restore code blocks
+    html = html.replace(/\u0000CODE(\d+)\u0000/g, function(_, n) { return codeBlocks[+n] })
+    return html
+  }
+})()
+
 function scrollto(target, scroll) {
   var padding = 10
   var targetRect = target.getBoundingClientRect()
@@ -229,6 +330,16 @@ var vm = new Vue({
       'itemSelected': null,
       'itemSelectedDetails': null,
       'itemSelectedReadability': '',
+      'itemSelectedSummary': null,
+      'summaryInProgress': false,
+      'summaryAbortController': null,
+      'aiSettings': {
+        'endpoint': s.ai_endpoint || '',
+        'api_key': s.ai_api_key || '',
+        'model': s.ai_model || '',
+        'system_prompt_custom_enabled': !!s.ai_system_prompt_custom_enabled,
+        'system_prompt_custom': s.ai_system_prompt_custom || '',
+      },
       'itemSearch': '',
       'itemSortNewestFirst': s.sort_newest_first,
       'itemListWidth': s.item_list_width || 300,
@@ -313,10 +424,16 @@ var vm = new Vue({
     itemSelectedContent: function() {
       if (!this.itemSelected) return ''
 
+      if (this.itemSelectedSummary !== null)
+        return window.yarrRenderMarkdown(this.itemSelectedSummary)
+
       if (this.itemSelectedReadability)
         return this.itemSelectedReadability
 
       return this.itemSelectedDetails.content || ''
+    },
+    aiConfigured: function() {
+      return !!(this.aiSettings.endpoint && this.aiSettings.api_key && this.aiSettings.model)
     },
     contentImages: function() {
       if (!this.itemSelectedDetails) return []
@@ -381,8 +498,27 @@ var vm = new Vue({
       api.settings.update({feed: newVal}).then(this.refreshItems.bind(this, false))
       if (this.$refs.itemlist) this.$refs.itemlist.scrollTop = 0
     },
+    'aiSettings': {
+      deep: true,
+      handler: debounce(function(ai) {
+        var payload = {
+          ai_endpoint: ai.endpoint,
+          ai_model: ai.model,
+          ai_system_prompt_custom_enabled: !!ai.system_prompt_custom_enabled,
+          ai_system_prompt_custom: ai.system_prompt_custom,
+        }
+        // Only push the API key when the user actually changed it away from
+        // the masked sentinel.
+        if (ai.api_key !== '***') {
+          payload.ai_api_key = ai.api_key
+        }
+        api.settings.update(payload)
+      }, 500),
+    },
     'itemSelected': function(newVal, oldVal) {
       this.itemSelectedReadability = ''
+      this.cancelSummaryStream()
+      this.itemSelectedSummary = null
       if (newVal === null) {
         this.itemSelectedDetails = null
         return
@@ -775,6 +911,11 @@ var vm = new Vue({
       }
       var item = this.itemSelectedDetails
       if (!item) return
+      // deactivate summary view if currently shown
+      if (this.itemSelectedSummary !== null) {
+        this.cancelSummaryStream()
+        this.itemSelectedSummary = null
+      }
       if (item.link) {
         this.loading.readability = true
         api.crawl(item.link).then(function(data) {
@@ -782,6 +923,62 @@ var vm = new Vue({
           vm.loading.readability = false
         })
       }
+    },
+    cancelSummaryStream: function() {
+      if (this.summaryAbortController) {
+        try { this.summaryAbortController.abort() } catch (e) {}
+      }
+      this.summaryAbortController = null
+      this.summaryInProgress = false
+    },
+    toggleSummary: function() {
+      if (!this.aiConfigured) return
+      var item = this.itemSelectedDetails
+      if (!item) return
+
+      // collapse if currently showing
+      if (this.itemSelectedSummary !== null) {
+        this.cancelSummaryStream()
+        this.itemSelectedSummary = null
+        return
+      }
+      // deactivate readability view
+      this.itemSelectedReadability = null
+
+      if (item.ai_summary) {
+        this.itemSelectedSummary = item.ai_summary
+        return
+      }
+      this.startSummaryStream(item.id)
+    },
+    startSummaryStream: function(id) {
+      var self = this
+      this.itemSelectedSummary = ''
+      this.summaryInProgress = true
+      this.summaryAbortController = api.items.summary_stream(id, {
+        onDelta: function(text) {
+          if (typeof text === 'string') self.itemSelectedSummary += text
+        },
+        onDone: function() {
+          self.summaryInProgress = false
+          self.summaryAbortController = null
+          if (self.itemSelectedDetails && self.itemSelectedDetails.id === id) {
+            self.itemSelectedDetails.ai_summary = self.itemSelectedSummary || ''
+          }
+        },
+        onError: function(err) {
+          self.summaryInProgress = false
+          self.summaryAbortController = null
+          self.itemSelectedSummary = null
+          alert('Summary failed: ' + (err && err.message ? err.message : err))
+        },
+      })
+    },
+    regenerateSummary: function() {
+      var item = this.itemSelectedDetails
+      if (!item || !this.aiConfigured) return
+      this.cancelSummaryStream()
+      this.startSummaryStream(item.id)
     },
     showSettings: function(settings) {
       this.settings = settings

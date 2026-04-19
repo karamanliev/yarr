@@ -32,6 +32,13 @@ func Middleware(c *router.Context) {
 		c.Next()
 		return
 	}
+	// Skip gzip for server-sent event endpoints. Buffering compressed output
+	// would break live streaming, and the wrapped writer does not expose a
+	// Flusher.
+	if strings.Contains(c.Req.Header.Get("Accept"), "text/event-stream") {
+		c.Next()
+		return
+	}
 
 	gz := &gzipResponseWriter{out: gzip.NewWriter(c.Out), src: c.Out}
 	defer gz.out.Close()
