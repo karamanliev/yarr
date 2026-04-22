@@ -312,6 +312,11 @@ var vm = new Vue({
     api.feeds.list_errors().then(function(errors) {
       vm.feed_errors = errors
     })
+    if (!this.theme.mode && !this.theme.auto) {
+      var detected = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      this.theme.mode = detected
+      api.settings.update({theme_mode: detected})
+    }
     this.applyTheme()
     this.initAutoThemeListener()
   },
@@ -361,7 +366,7 @@ var vm = new Vue({
         'font': s.theme_font,
         'size': s.theme_size,
         'auto': !!s.theme_auto,
-        'mode': s.theme_mode || 'dark',
+        'mode': s.theme_mode || '',
         'lightVariant': s.theme_light_variant || 'white',
         'darkVariant': s.theme_dark_variant || 'black',
         'accent': s.theme_accent || 'blue',
@@ -636,6 +641,12 @@ var vm = new Vue({
       } else if (mq.addListener) {
         mq.addListener(handler)  // Safari < 14
       }
+    },
+    toggleAutoTheme: function() {
+      if (this.theme.auto) {
+        this.theme.mode = this.getActiveMode()
+      }
+      this.theme.auto = !this.theme.auto
     },
     pickLightVariant: function(key) {
       this.theme.lightVariant = key

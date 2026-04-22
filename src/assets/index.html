@@ -72,7 +72,7 @@
 
                     <div class="dropdown-divider"></div>
 
-                    <button class="dropdown-item d-flex align-items-center" @click.stop="theme.auto = !theme.auto" :aria-pressed="theme.auto">
+                    <button class="dropdown-item d-flex align-items-center" @click.stop="toggleAutoTheme" :aria-pressed="theme.auto">
                         <span class="icon mr-2" v-if="theme.auto">{% inline "circle-full.svg" %}</span>
                         <span class="icon mr-2" v-else>{% inline "circle.svg" %}</span>
                         Follow system

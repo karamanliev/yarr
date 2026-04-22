@@ -15,7 +15,7 @@ func settingsDefaults() map[string]interface{} {
 		"theme_font":           "",
 		"theme_size":           1,
 		"theme_auto":           false,
-		"theme_mode":           "dark",
+		"theme_mode":           "",
 		"theme_light_variant":  "white",
 		"theme_dark_variant":   "black",
 		"theme_accent":         "blue",
