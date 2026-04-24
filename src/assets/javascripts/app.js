@@ -319,6 +319,19 @@ var vm = new Vue({
     }
     this.applyTheme()
     this.initAutoThemeListener()
+
+    var self = this
+    this._onVisibilityChange = function() {
+      if (!document.hidden) {
+        self.onTabVisible()
+      }
+    }
+    document.addEventListener('visibilitychange', this._onVisibilityChange)
+  },
+  beforeDestroy: function() {
+    if (this._onVisibilityChange) {
+      document.removeEventListener('visibilitychange', this._onVisibilityChange)
+    }
   },
   data: function() {
     var s = app.settings
@@ -1017,6 +1030,15 @@ var vm = new Vue({
       api.feeds.refresh().then(function() {
         vm.refreshStats()
       })
+    },
+    onTabVisible: function() {
+      if (this._tabSyncing) return
+      this._tabSyncing = true
+      var self = this
+      this.refreshStats()
+        .then(function() { return self.refreshItems(false) })
+        .then(function() { self._tabSyncing = false })
+        .catch(function() { self._tabSyncing = false })
     },
     computeStats: function() {
       var filter = this.filterSelected
