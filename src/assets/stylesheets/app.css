@@ -216,7 +216,7 @@ select.form-control:not([multiple]):not([size]) {
 }
 
 .selectgroup.item-read > .selectgroup-label {
-  opacity: .55;
+  opacity: .45;
 }
 
 .selectgroup.item-read input:checked + .selectgroup-label {

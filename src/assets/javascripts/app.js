@@ -726,7 +726,7 @@ var vm = new Vue({
           vm.feeds = values[1]
         })
     },
-    refreshItems: function(loadMore = false) {
+    refreshItems: function(loadMore, preserve) {
       if (this.feedSelected === null) {
         vm.items = []
         vm.itemsHasMore = false
@@ -740,26 +740,19 @@ var vm = new Vue({
 
       this.loading.items = true
       return api.items.list(query).then(function(data) {
-        var selectedItem = null
-        if (!loadMore && vm.itemSelected) {
-          selectedItem = vm.items.find(function(item) {
-            return item.id == vm.itemSelected
-          })
-        }
-
         if (loadMore) {
           vm.items = vm.items.concat(data.list)
-        } else {
-          vm.items = data.list
-        }
-
-        if (!loadMore && selectedItem && !vm.items.find(function(item) {
-          return item.id == selectedItem.id
-        })) {
-          vm.items.push(selectedItem)
+        } else if (preserve) {
+          // Merge: keep existing items visible, add new ones from server
+          var merged = {}
+          vm.items.forEach(function(item) { merged[item.id] = item })
+          data.list.forEach(function(item) { merged[item.id] = item })
+          vm.items = Object.values(merged)
           vm.items.sort(function(a, b) {
             return vm.itemSortNewestFirst ? b.id - a.id : a.id - b.id
           })
+        } else {
+          vm.items = data.list
         }
 
         vm.itemsHasMore = data.has_more
@@ -1061,7 +1054,7 @@ var vm = new Vue({
       this._tabSyncing = true
       var self = this
       this.refreshStats()
-        .then(function() { return self.refreshItems(false) })
+        .then(function() { return self.refreshItems(false, true) })
         .then(function() { self._tabSyncing = false })
         .catch(function() { self._tabSyncing = false })
     },
