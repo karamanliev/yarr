@@ -327,10 +327,18 @@ var vm = new Vue({
       }
     }
     document.addEventListener('visibilitychange', this._onVisibilityChange)
+
+    this._eventSource = new EventSource('./api/events')
+    this._eventSource.addEventListener('sync', function() {
+      self.onTabVisible()
+    })
   },
   beforeDestroy: function() {
     if (this._onVisibilityChange) {
       document.removeEventListener('visibilitychange', this._onVisibilityChange)
+    }
+    if (this._eventSource) {
+      this._eventSource.close()
     }
   },
   data: function() {

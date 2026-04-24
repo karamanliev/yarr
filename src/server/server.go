@@ -19,6 +19,10 @@ type Server struct {
 	cache       map[string]interface{}
 	cache_mutex *sync.Mutex
 
+	// SSE event subscribers
+	subs      map[chan struct{}]struct{}
+	subs_lock sync.Mutex
+
 	BasePath string
 
 	// auth
@@ -36,6 +40,33 @@ func NewServer(db *storage.Storage, addr string) *Server {
 		worker:      worker.NewWorker(db),
 		cache:       make(map[string]interface{}),
 		cache_mutex: &sync.Mutex{},
+		subs:        make(map[chan struct{}]struct{}),
+	}
+}
+
+func (s *Server) subscribe() chan struct{} {
+	ch := make(chan struct{}, 1)
+	s.subs_lock.Lock()
+	s.subs[ch] = struct{}{}
+	s.subs_lock.Unlock()
+	return ch
+}
+
+func (s *Server) unsubscribe(ch chan struct{}) {
+	s.subs_lock.Lock()
+	delete(s.subs, ch)
+	s.subs_lock.Unlock()
+}
+
+func (s *Server) notifySubscribers() {
+	s.subs_lock.Lock()
+	defer s.subs_lock.Unlock()
+	for ch := range s.subs {
+		select {
+		case ch <- struct{}{}:
+		default:
+			// subscriber already has a pending notification
+		}
 	}
 }
 
@@ -48,6 +79,8 @@ func (h *Server) GetAddr() string {
 }
 
 func (s *Server) Start() {
+	s.worker.OnRefreshDone = s.notifySubscribers
+
 	refreshRate := s.db.GetSettingsValueInt64("refresh_rate")
 	s.worker.FindFavicons()
 	s.worker.StartFeedCleaner()

@@ -12,11 +12,12 @@ import (
 const NUM_WORKERS = 4
 
 type Worker struct {
-	db      *storage.Storage
-	pending *int32
-	refresh *time.Ticker
-	reflock sync.Mutex
-	stopper chan bool
+	db             *storage.Storage
+	pending        *int32
+	refresh        *time.Ticker
+	reflock        sync.Mutex
+	stopper        chan bool
+	OnRefreshDone  func()
 }
 
 func NewWorker(db *storage.Storage) *Worker {
@@ -133,6 +134,9 @@ func (w *Worker) refresher(feeds []storage.Feed) {
 	close(dstqueue)
 
 	log.Printf("Finished refreshing %d feeds", len(feeds))
+	if w.OnRefreshDone != nil {
+		w.OnRefreshDone()
+	}
 }
 
 func (w *Worker) worker(srcqueue <-chan storage.Feed, dstqueue chan<- []storage.Item) {

@@ -44,6 +44,7 @@ func (s *Server) handler() http.Handler {
 	r.For("/", s.handleIndex)
 	r.For("/manifest.json", s.handleManifest)
 	r.For("/static/*path", s.handleStatic)
+	r.For("/api/events", s.handleEvents)
 	r.For("/api/status", s.handleStatus)
 	r.For("/api/folders", s.handleFolderList)
 	r.For("/api/folders/:id", s.handleFolder)
@@ -102,6 +103,38 @@ func (s *Server) handleManifest(c *router.Context) {
 			},
 		},
 	})
+}
+
+func (s *Server) handleEvents(c *router.Context) {
+	if c.Req.Method != "GET" {
+		c.Out.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	flusher, ok := c.Out.(http.Flusher)
+	if !ok {
+		c.Out.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	c.Out.Header().Set("Content-Type", "text/event-stream")
+	c.Out.Header().Set("Cache-Control", "no-cache")
+	c.Out.Header().Set("Connection", "keep-alive")
+	c.Out.Header().Set("X-Accel-Buffering", "no")
+	c.Out.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	ch := s.subscribe()
+	defer s.unsubscribe(ch)
+
+	for {
+		select {
+		case <-ch:
+			fmt.Fprintf(c.Out, "event: sync\ndata: {}\n\n")
+			flusher.Flush()
+		case <-c.Req.Context().Done():
+			return
+		}
+	}
 }
 
 func (s *Server) handleStatus(c *router.Context) {
