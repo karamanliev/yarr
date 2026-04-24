@@ -740,11 +740,28 @@ var vm = new Vue({
 
       this.loading.items = true
       return api.items.list(query).then(function(data) {
+        var selectedItem = null
+        if (!loadMore && vm.itemSelected) {
+          selectedItem = vm.items.find(function(item) {
+            return item.id == vm.itemSelected
+          })
+        }
+
         if (loadMore) {
           vm.items = vm.items.concat(data.list)
         } else {
           vm.items = data.list
         }
+
+        if (!loadMore && selectedItem && !vm.items.find(function(item) {
+          return item.id == selectedItem.id
+        })) {
+          vm.items.push(selectedItem)
+          vm.items.sort(function(a, b) {
+            return vm.itemSortNewestFirst ? b.id - a.id : a.id - b.id
+          })
+        }
+
         vm.itemsHasMore = data.has_more
         vm.loading.items = false
 

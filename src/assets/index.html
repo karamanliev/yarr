@@ -325,7 +325,8 @@
             </div>
             <div id="item-list-scroll" class="p-2 overflow-auto scroll-touch border-top flex-grow-1" v-scroll="loadMoreItems" ref="itemlist">
                 <label v-for="item in items" :key="item.id"
-                       class="selectgroup">
+                       class="selectgroup"
+                       :class="{'item-read': item.status != 'unread'}">
                     <input type="radio" name="item" :value="item.id" v-model="itemSelected">
                     <div class="selectgroup-label d-flex flex-column">
                         <div style="line-height: 100%; opacity: .7; margin-bottom: .1rem;" class="d-flex align-items-center">

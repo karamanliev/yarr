@@ -215,6 +215,14 @@ select.form-control:not([multiple]):not([size]) {
   overflow-wrap: break-word;
 }
 
+.selectgroup.item-read > .selectgroup-label {
+  opacity: .55;
+}
+
+.selectgroup.item-read input:checked + .selectgroup-label {
+  opacity: 1;
+}
+
 .selectgroup-label:hover {
   cursor: pointer;
 }
