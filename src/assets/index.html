@@ -75,10 +75,10 @@
                     <button class="dropdown-item d-flex align-items-center" @click.stop="toggleAutoTheme" :aria-pressed="theme.auto">
                         <span class="icon mr-2" v-if="theme.auto">{% inline "circle-full.svg" %}</span>
                         <span class="icon mr-2" v-else>{% inline "circle.svg" %}</span>
-                        Follow system
+                        {{ $t('follow_system') }}
                     </button>
 
-                    <header class="dropdown-header" role="heading" aria-level="2">{{ $t('theme') }}</header>
+                    <header class="dropdown-header" role="heading" aria-level="2">{{ $t('light_theme') }}</header>
                     <div class="row text-center m-0">
                         <button class="btn btn-link col-4 px-0 rounded-0 theme-swatch-btn"
                                 :style="{backgroundColor: entry.value, color: contrastFor(entry.value)}"
@@ -91,7 +91,7 @@
                         </button>
                     </div>
 
-                    <header class="dropdown-header" role="heading" aria-level="2">Dark</header>
+                    <header class="dropdown-header" role="heading" aria-level="2">{{ $t('dark_theme') }}</header>
                     <div class="row text-center m-0">
                         <button class="btn btn-link col-4 px-0 rounded-0 theme-swatch-btn"
                                 :style="{backgroundColor: entry.value, color: contrastFor(entry.value)}"
@@ -104,7 +104,7 @@
                         </button>
                     </div>
 
-                    <header class="dropdown-header" role="heading" aria-level="2">Accent</header>
+                    <header class="dropdown-header" role="heading" aria-level="2">{{ $t('accent') }}</header>
                     <div class="row text-center m-0">
                         <button class="btn btn-link col-3 px-0 rounded-0 theme-swatch-btn"
                                 :style="{backgroundColor: entry.value, color: contrastFor(entry.value)}"
@@ -164,7 +164,7 @@
                     <div class="dropdown-divider"></div>
                     <button class="dropdown-item" @click="showSettings('ai')">
                         <span class="icon mr-1">{% inline "sparkles.svg" %}</span>
-                        AI Summary
+                        {{ $t('ai_summary') }}
                     </button>
                     <div class="dropdown-divider"></div>
                     <button class="dropdown-item" @click="showSettings('shortcuts')">
@@ -390,7 +390,7 @@
                         v-if="aiConfigured"
                         :class="{active: itemSelectedSummary !== null}"
                         @click="toggleSummary()"
-                        title="AI Summary">
+                        :title="$t('ai_summary')">
                     <span class="icon" :class="{'icon-loading': summaryInProgress}">{% inline "sparkles.svg" %}</span>
                 </button>
                 <button class="toolbar-item"
@@ -433,9 +433,9 @@
                                 v-if="itemSelectedSummary !== null"
                                 @click="regenerateSummary()"
                                 :disabled="summaryInProgress"
-                                title="Regenerate summary">
+                                :title="$t('regenerate_summary')">
                             <span class="icon mr-1" :class="{'icon-loading': summaryInProgress}">{% inline "rotate-cw.svg" %}</span>
-                            Regenerate summary
+                            {{ $t('regenerate_summary') }}
                         </button>
                     </div>
                     <hr>
@@ -487,21 +487,21 @@
                 </form>
             </div>
             <div v-else-if="settings=='ai'">
-                <p class="cursor-default"><b>AI Summary Settings</b></p>
+                <p class="cursor-default"><b>{{ $t('ai_summary_settings') }}</b></p>
                 <form @submit.prevent="settings = ''" class="mt-4">
-                    <label for="ai-endpoint">Endpoint</label>
+                    <label for="ai-endpoint">{{ $t('endpoint') }}</label>
                     <input id="ai-endpoint" type="url" class="form-control"
                            placeholder="https://api.openai.com/v1"
                            autocomplete="off"
                            v-model="aiSettings.endpoint">
 
-                    <label for="ai-api-key" class="mt-3">API Key</label>
+                    <label for="ai-api-key" class="mt-3">{{ $t('api_key') }}</label>
                     <input id="ai-api-key" type="password" class="form-control"
                            placeholder="sk-..."
                            autocomplete="off"
                            v-model="aiSettings.api_key">
 
-                    <label for="ai-model" class="mt-3">Model</label>
+                    <label for="ai-model" class="mt-3">{{ $t('model') }}</label>
                     <input id="ai-model" type="text" class="form-control"
                            placeholder="gpt-4o-mini"
                            autocomplete="off"
@@ -510,15 +510,15 @@
                     <label class="mt-3 d-flex align-items-center cursor-pointer" style="user-select: none">
                         <input type="checkbox" class="mr-2"
                                v-model="aiSettings.system_prompt_custom_enabled">
-                        Use custom system prompt
+                        {{ $t('use_custom_system_prompt') }}
                     </label>
                     <textarea v-if="aiSettings.system_prompt_custom_enabled"
                               class="form-control mt-2"
                               rows="6"
-                              placeholder="Leave empty to use the default summarization prompt."
+                              :placeholder="$t('default_summarization_prompt_placeholder')"
                               v-model="aiSettings.system_prompt_custom"></textarea>
 
-                    <button class="btn btn-block btn-default mt-3" type="submit">Done</button>
+                    <button class="btn btn-block btn-default mt-3" type="submit">{{ $t('done') }}</button>
                 </form>
             </div>
             <div v-else-if="settings=='shortcuts'">

@@ -30,10 +30,75 @@
       "zh": "刷新订阅",
       "ru": "Обновить ленты"
     },
-    "theme": {
-      "en": "Theme",
-      "zh": "主题",
-      "ru": "Тема"
+    "light_theme": {
+      "en": "Light Theme",
+      "zh": "浅色主题",
+      "ru": "Светлая тема"
+    },
+    "dark_theme": {
+      "en": "Dark Theme",
+      "zh": "深色主题",
+      "ru": "Тёмная тема"
+    },
+    "accent": {
+      "en": "Accent",
+      "zh": "强调色",
+      "ru": "Акцент"
+    },
+    "follow_system": {
+      "en": "Follow System",
+      "zh": "跟随系统",
+      "ru": "Следовать системе"
+    },
+    "ai_summary": {
+      "en": "AI Summary",
+      "zh": "AI 摘要",
+      "ru": "AI-сводка"
+    },
+    "ai_summary_settings": {
+      "en": "AI Summary Settings",
+      "zh": "AI 摘要设置",
+      "ru": "Настройки AI-сводки"
+    },
+    "endpoint": {
+      "en": "Endpoint",
+      "zh": "端点",
+      "ru": "Эндпоинт"
+    },
+    "api_key": {
+      "en": "API Key",
+      "zh": "API 密钥",
+      "ru": "API-ключ"
+    },
+    "model": {
+      "en": "Model",
+      "zh": "模型",
+      "ru": "Модель"
+    },
+    "use_custom_system_prompt": {
+      "en": "Use custom system prompt",
+      "zh": "使用自定义系统提示词",
+      "ru": "Использовать собственный системный промпт"
+    },
+    "default_summarization_prompt_placeholder": {
+      "en": "Leave empty to use the default summarization prompt.",
+      "zh": "留空以使用默认摘要提示词。",
+      "ru": "Оставьте пустым, чтобы использовать стандартный промпт для суммаризации."
+    },
+    "done": {
+      "en": "Done",
+      "zh": "完成",
+      "ru": "Готово"
+    },
+    "regenerate_summary": {
+      "en": "Regenerate summary",
+      "zh": "重新生成摘要",
+      "ru": "Пересоздать сводку"
+    },
+    "summary_failed": {
+      "en": "Summary failed",
+      "zh": "摘要生成失败",
+      "ru": "Не удалось создать сводку"
     },
     "auto_refresh": {
       "en": "Auto Refresh",

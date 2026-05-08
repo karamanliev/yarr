@@ -1024,7 +1024,7 @@ var vm = new Vue({
           self.summaryInProgress = false
           self.summaryAbortController = null
           self.itemSelectedSummary = null
-          alert('Summary failed: ' + (err && err.message ? err.message : err))
+          alert(self.$t('summary_failed') + ': ' + (err && err.message ? err.message : err))
         },
       })
     },
