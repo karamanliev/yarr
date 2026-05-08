@@ -307,6 +307,8 @@ Vue.use(i18n)
 
 var vm = new Vue({
   created: function() {
+    this.$setLang(app.settings.language)
+
     this.refreshStats()
       .then(this.refreshFeeds.bind(this))
       .then(this.refreshItems.bind(this, false))
@@ -342,9 +344,6 @@ var vm = new Vue({
     if (this._eventSource) {
       this._eventSource.close()
     }
-
-    this.updateMetaTheme(app.settings.theme_name)
-    this.$setLang(app.settings.language)
   },
   data: function() {
     var s = app.settings
