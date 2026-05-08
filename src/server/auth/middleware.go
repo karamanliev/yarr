@@ -18,10 +18,6 @@ type Middleware struct {
 	DB       *storage.Storage
 }
 
-func unsafeMethod(method string) bool {
-	return method == "POST" || method == "PUT" || method == "DELETE"
-}
-
 func (m *Middleware) Handler(c *router.Context) {
 	for _, path := range m.Public {
 		if strings.HasPrefix(c.Req.URL.Path, m.BasePath+path) {
@@ -50,7 +46,7 @@ func (m *Middleware) Handler(c *router.Context) {
 			return
 		} else {
 			settings := m.DB.GetSettings()
-			c.HTML(http.StatusOK, assets.Template("login.html"), map[string]interface{}{
+			c.HTML(http.StatusOK, assets.Template("login.html"), map[string]any{
 				"username": username,
 				"error":    "Invalid username/password",
 				"settings": settings,
@@ -60,8 +56,8 @@ func (m *Middleware) Handler(c *router.Context) {
 		}
 	}
 	settings := m.DB.GetSettings()
-	c.HTML(http.StatusOK, assets.Template("login.html"), map[string]interface{}{
-		"settings": settings,
+	c.HTML(http.StatusOK, assets.Template("login.html"), map[string]any{
+		"settings": m.DB.GetSettings(),
 		"theme":    theme.Resolve(settings),
 	})
 }

@@ -16,7 +16,7 @@ type Server struct {
 	Addr        string
 	db          *storage.Storage
 	worker      *worker.Worker
-	cache       map[string]interface{}
+	cache       map[string]any
 	cache_mutex *sync.Mutex
 
 	// SSE event subscribers
@@ -38,7 +38,7 @@ func NewServer(db *storage.Storage, addr string) *Server {
 		db:          db,
 		Addr:        addr,
 		worker:      worker.NewWorker(db),
-		cache:       make(map[string]interface{}),
+		cache:       make(map[string]any),
 		cache_mutex: &sync.Mutex{},
 		subs:        make(map[chan struct{}]struct{}),
 	}
