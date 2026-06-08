@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/nkanaev/yarr/src/storage"
 )
 
 const defaultAISystemPrompt = `You are a meticulous article summarizer for an RSS reader. Produce short, high-signal summaries that are accurate, neutral, and easy to scan.
@@ -45,35 +47,17 @@ type aiConfig struct {
 	SystemPrompt string
 }
 
-func aiString(settings map[string]interface{}, key string) string {
-	if v, ok := settings[key]; ok {
-		if s, ok := v.(string); ok {
-			return s
-		}
-	}
-	return ""
-}
-
-func aiBool(settings map[string]interface{}, key string) bool {
-	if v, ok := settings[key]; ok {
-		if b, ok := v.(bool); ok {
-			return b
-		}
-	}
-	return false
-}
-
-// buildAIConfig extracts AI settings from the stored settings map.
+// buildAIConfig extracts AI settings from the stored settings.
 // Returns (cfg, configured). `configured` is true when endpoint, api key
 // and model are all non-empty.
-func buildAIConfig(settings map[string]interface{}) (aiConfig, bool) {
+func buildAIConfig(settings storage.Settings) (aiConfig, bool) {
 	cfg := aiConfig{
-		Endpoint: strings.TrimSpace(aiString(settings, "ai_endpoint")),
-		APIKey:   strings.TrimSpace(aiString(settings, "ai_api_key")),
-		Model:    strings.TrimSpace(aiString(settings, "ai_model")),
+		Endpoint: strings.TrimSpace(settings.AiEndpoint),
+		APIKey:   strings.TrimSpace(settings.AiApiKey),
+		Model:    strings.TrimSpace(settings.AiModel),
 	}
-	if aiBool(settings, "ai_system_prompt_custom_enabled") {
-		custom := strings.TrimSpace(aiString(settings, "ai_system_prompt_custom"))
+	if settings.AiSystemPromptCustomEnabled {
+		custom := strings.TrimSpace(settings.AiSystemPromptCustom)
 		if custom != "" {
 			cfg.SystemPrompt = custom
 		}

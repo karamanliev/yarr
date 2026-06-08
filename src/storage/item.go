@@ -9,8 +9,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/nkanaev/yarr/src/content/htmlutil"
 )
 
 type ItemStatus int
@@ -196,7 +194,7 @@ func listQueryPredicate(filter ItemFilter, newestFirst bool) (string, []any) {
 
 		cond = append(
 			cond,
-			"i.search_rowid in (select rowid from search where search match :search)",
+			"i.id in (select rowid as id from search where search match :search)",
 		)
 		args = append(args, sql.Named("search", strings.Join(terms, " ")))
 	}
@@ -244,16 +242,9 @@ func listQueryPredicate(filter ItemFilter, newestFirst bool) (string, []any) {
 	return predicate, args
 }
 
-func (s *Storage) CountItems(filter ItemFilter) int {
-	predicate, args := listQueryPredicate(filter, false)
-
+func (s *Storage) CountItems() int {
 	var count int
-	query := fmt.Sprintf(`
-		select count(*)
-		from items i
-		where %s
-		`, predicate)
-	err := s.db.QueryRow(query, args...).Scan(&count)
+	err := s.db.QueryRow(`select count(*) from items`).Scan(&count)
 	if err != nil {
 		log.Print(err)
 		return 0
@@ -395,46 +386,6 @@ func (s *Storage) FeedStats() []FeedStat {
 	return result
 }
 
-func (s *Storage) SyncSearch() {
-	rows, err := s.db.Query(`
-		select id, title, content
-		from items
-		where search_rowid is null;
-	`)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	items := make([]Item, 0)
-	for rows.Next() {
-		var item Item
-		rows.Scan(&item.Id, &item.Title, &item.Content)
-		items = append(items, item)
-	}
-
-	for _, item := range items {
-		result, err := s.db.Exec(`
-			insert into search (title, description, content) values (:title, "", :content)`,
-			sql.Named("title", item.Title),
-			sql.Named("content", htmlutil.ExtractText(item.Content)),
-		)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		if numrows, err := result.RowsAffected(); err == nil && numrows == 1 {
-			if rowId, err := result.LastInsertId(); err == nil {
-				s.db.Exec(
-					`update items set search_rowid = :search_rowid where id = :id`,
-					sql.Named("search_rowid", rowId),
-					sql.Named("id", item.Id),
-				)
-			}
-		}
-	}
-}
-
 var (
 	itemsKeepSize = 50
 	itemsKeepDays = 90
@@ -474,5 +425,9 @@ func (s *Storage) DeleteOldItems() {
 	numDeleted, err := result.RowsAffected()
 	if err == nil && numDeleted > 0 {
 		log.Printf("Deleted %d old items", numDeleted)
+
+		if _, err := s.db.Exec("vacuum"); err != nil {
+			log.Print(err)
+		}
 	}
 }

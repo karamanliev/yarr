@@ -81,8 +81,7 @@ func (h *Server) GetAddr() string {
 func (s *Server) Start() {
 	s.worker.OnRefreshDone = s.notifySubscribers
 
-	refreshRate := s.db.GetSettingsValueInt64("refresh_rate")
-	s.worker.FindFavicons()
+	refreshRate := s.db.GetSettings().RefreshRate
 	s.worker.StartFeedCleaner()
 	s.worker.SetRefreshRate(refreshRate)
 	if refreshRate > 0 {

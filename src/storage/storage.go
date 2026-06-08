@@ -5,11 +5,29 @@ import (
 	"log"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
+	"github.com/nkanaev/yarr/src/content/htmlutil"
 )
+
+func init() {
+	sql.Register("sqlite3_yarr", &sqlite3.SQLiteDriver{
+		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+			return conn.RegisterFunc("strip_html", htmlutil.ExtractText, true)
+		},
+	})
+}
 
 type Storage struct {
 	db *sql.DB
+}
+
+type Nullable[T any] struct {
+	Set   bool
+	Value *T
+}
+
+func SetNullable[T any](v *T) Nullable[T] {
+	return Nullable[T]{Set: true, Value: v}
 }
 
 func New(path string) (*Storage, error) {
@@ -19,7 +37,7 @@ func New(path string) (*Storage, error) {
 		path = path + "?" + params
 	}
 
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite3_yarr", path)
 	if err != nil {
 		return nil, err
 	}
@@ -28,4 +46,8 @@ func New(path string) (*Storage, error) {
 		return nil, err
 	}
 	return &Storage{db: db}, nil
+}
+
+func (s *Storage) Close() error {
+	return s.db.Close()
 }

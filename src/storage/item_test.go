@@ -39,10 +39,10 @@ func testItemsSetup(db *Storage) testItemScope {
 	folder1 := db.CreateFolder("folder1")
 	folder2 := db.CreateFolder("folder2")
 
-	feed11 := db.CreateFeed("feed11", "", "", "http://test.com/feed11.xml", &folder1.Id)
-	feed12 := db.CreateFeed("feed12", "", "", "http://test.com/feed12.xml", &folder1.Id)
-	feed21 := db.CreateFeed("feed21", "", "", "http://test.com/feed21.xml", &folder2.Id)
-	feed01 := db.CreateFeed("feed01", "", "", "http://test.com/feed01.xml", nil)
+	feed11 := db.CreateFeed(CreateFeedParams{Title: "feed11", FeedLink: "http://test.com/feed11.xml", FolderID: &folder1.Id})
+	feed12 := db.CreateFeed(CreateFeedParams{Title: "feed12", FeedLink: "http://test.com/feed12.xml", FolderID: &folder1.Id})
+	feed21 := db.CreateFeed(CreateFeedParams{Title: "feed21", FeedLink: "http://test.com/feed21.xml", FolderID: &folder2.Id})
+	feed01 := db.CreateFeed(CreateFeedParams{Title: "feed01", FeedLink: "http://test.com/feed01.xml"})
 
 	now := time.Now()
 	db.CreateItems([]Item{
@@ -212,7 +212,6 @@ func TestListItems(t *testing.T) {
 	}
 
 	// filter by search
-	db.SyncSearch()
 	search1 := "title111"
 	have = getItemGuids(db.ListItems(ItemFilter{Search: &search1}, 4, true, false))
 	want = []string{"item111"}
@@ -326,7 +325,7 @@ func TestDeleteOldItems(t *testing.T) {
 
 	t.Run("keeps at least 50 items", func(t *testing.T) {
 		db := testDB()
-		feed := db.CreateFeed("f", "", "", "http://f.xml", nil)
+		feed := db.CreateFeed(CreateFeedParams{Title: "f", FeedLink: "http://f.xml"})
 		items := make([]Item, 100)
 		for i := range 100 {
 			items[i] = Item{GUID: strconv.Itoa(i), FeedId: feed.Id, Date: now.Add(time.Duration(i) * time.Hour * 24)}
@@ -338,7 +337,8 @@ func TestDeleteOldItems(t *testing.T) {
 		db.db.Exec(`update items set last_arrived = :la where guid != "99"`, sql.Named("la", now.Add(-time.Hour*24*100)))
 
 		db.DeleteOldItems()
-		have := db.CountItems(ItemFilter{FeedID: &feed.Id})
+		var have int
+		db.db.QueryRow("select count(*) from items where feed_id = ?", feed.Id).Scan(&have)
 		if have != 50 {
 			t.Errorf("expected 50 items, have %d", have)
 		}
@@ -346,7 +346,7 @@ func TestDeleteOldItems(t *testing.T) {
 
 	t.Run("keeps all less than 90 days old", func(t *testing.T) {
 		db := testDB()
-		feed := db.CreateFeed("f", "", "", "http://f.xml", nil)
+		feed := db.CreateFeed(CreateFeedParams{Title: "f", FeedLink: "http://f.xml"})
 		items := make([]Item, 100)
 		for i := 0; i < 100; i++ {
 			items[i] = Item{GUID: strconv.Itoa(i), FeedId: feed.Id, Date: now.Add(time.Duration(i) * time.Second)}
@@ -359,7 +359,8 @@ func TestDeleteOldItems(t *testing.T) {
 		db.db.Exec(`update items set last_arrived = :la where guid != "99"`, sql.Named("la", now.Add(-time.Hour*24*80)))
 
 		db.DeleteOldItems()
-		have := db.CountItems(ItemFilter{FeedID: &feed.Id})
+		var have int
+		db.db.QueryRow("select count(*) from items where feed_id = ?", feed.Id).Scan(&have)
 		if have != 100 {
 			t.Errorf("expected 100 items, have %d", have)
 		}
@@ -367,7 +368,7 @@ func TestDeleteOldItems(t *testing.T) {
 
 	t.Run("keeps starred", func(t *testing.T) {
 		db := testDB()
-		feed := db.CreateFeed("f", "", "", "http://f.xml", nil)
+		feed := db.CreateFeed(CreateFeedParams{Title: "f", FeedLink: "http://f.xml"})
 		items := make([]Item, 100)
 		for i := 0; i < 100; i++ {
 			items[i] = Item{GUID: strconv.Itoa(i), FeedId: feed.Id, Date: now.Add(time.Duration(i) * time.Second)}
@@ -381,7 +382,8 @@ func TestDeleteOldItems(t *testing.T) {
 		db.db.Exec(`update items set status = :s where cast(guid as integer) < 10`, sql.Named("s", starred))
 
 		db.DeleteOldItems()
-		have := db.CountItems(ItemFilter{FeedID: &feed.Id})
+		var have int
+		db.db.QueryRow("select count(*) from items where feed_id = ?", feed.Id).Scan(&have)
 		// 50 (limit) + 10 (starred) = 60 items should remain.
 		if have != 60 {
 			t.Errorf("expected 60 items, have %d", have)
@@ -395,7 +397,7 @@ func TestCreateItemsLastArrived(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		db := testDB()
 		defer db.db.Close()
-		feed := db.CreateFeed("test feed", "", "", "http://example.com/feed", nil)
+		feed := db.CreateFeed(CreateFeedParams{Title: "test feed", FeedLink: "http://example.com/feed"})
 
 		item := Item{
 			GUID:   "item1",
@@ -428,4 +430,86 @@ func TestCreateItemsLastArrived(t *testing.T) {
 			t.Errorf("expected last_arrived to be updated. old: %v, new: %v", lastArrived1, lastArrived2)
 		}
 	})
+}
+
+func TestSearch(t *testing.T) {
+	db := testDB()
+	defer db.Close()
+	feed := db.CreateFeed(CreateFeedParams{Title: "f", FeedLink: "http://f.xml"})
+
+	db.CreateItems([]Item{
+		{
+			GUID:    "i1",
+			FeedId:  feed.Id,
+			Title:   "Hello World",
+			Content: "This is a <b>test</b> of the <i>emergency</i> broadcast system.",
+		},
+		{
+			GUID:    "i2",
+			FeedId:  feed.Id,
+			Title:   "FTS5 Unicode",
+			Content: "Unicode support with characters like: Привет, 世界, 🚀",
+		},
+		{
+			GUID:    "i3",
+			FeedId:  feed.Id,
+			Title:   "Hidden Tag",
+			Content: `<div class="secret-class">Don't find me by my class name</div>`,
+		},
+	})
+
+	// 1. Basic search
+	s1 := "emergency"
+	have := getItemGuids(db.ListItems(ItemFilter{Search: &s1}, 10, true, false))
+	if !reflect.DeepEqual(have, []string{"i1"}) {
+		t.Errorf("basic search failed: expected [i1], got %v", have)
+	}
+
+	// 2. HTML stripping: Should find text, but NOT the tags
+	s2 := "test"
+	have = getItemGuids(db.ListItems(ItemFilter{Search: &s2}, 10, true, false))
+	if !reflect.DeepEqual(have, []string{"i1"}) {
+		t.Errorf("html text search failed: expected [i1], got %v", have)
+	}
+
+	s3 := "secret-class"
+	have = getItemGuids(db.ListItems(ItemFilter{Search: &s3}, 10, true, false))
+	if len(have) > 0 {
+		t.Errorf("html tag search should have failed but found: %v", have)
+	}
+
+	// 3. Multi-word (AND)
+	s4 := "broadcast system"
+	have = getItemGuids(db.ListItems(ItemFilter{Search: &s4}, 10, true, false))
+	if !reflect.DeepEqual(have, []string{"i1"}) {
+		t.Errorf("multi-word search failed: expected [i1], got %v", have)
+	}
+
+	// 4. Unicode
+	s5 := "Привет"
+	have = getItemGuids(db.ListItems(ItemFilter{Search: &s5}, 10, true, false))
+	if !reflect.DeepEqual(have, []string{"i2"}) {
+		t.Errorf("unicode search failed: expected [i2], got %v", have)
+	}
+
+	s6 := "世界"
+	have = getItemGuids(db.ListItems(ItemFilter{Search: &s6}, 10, true, false))
+	if !reflect.DeepEqual(have, []string{"i2"}) {
+		t.Errorf("unicode search (CJK) failed: expected [i2], got %v", have)
+	}
+
+	// 5. Trigger: Update
+	db.db.Exec("update items set title = 'Updated Title' where guid = 'i1'")
+	s7 := "Updated"
+	have = getItemGuids(db.ListItems(ItemFilter{Search: &s7}, 10, true, false))
+	if !reflect.DeepEqual(have, []string{"i1"}) {
+		t.Errorf("update trigger failed: expected [i1], got %v", have)
+	}
+
+	// 6. Trigger: Delete
+	db.db.Exec("delete from items where guid = 'i1'")
+	have = getItemGuids(db.ListItems(ItemFilter{Search: &s7}, 10, true, false))
+	if len(have) > 0 {
+		t.Errorf("delete trigger failed: found deleted item: %v", have)
+	}
 }

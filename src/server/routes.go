@@ -69,7 +69,7 @@ func (s *Server) handler() http.Handler {
 func (s *Server) handleIndex(c *router.Context) {
 	settings := s.db.GetSettings()
 	c.HTML(http.StatusOK, assets.Template("index.html"), map[string]any{
-		"settings":      s.db.GetSettings(),
+		"settings":      settings.Map(),
 		"theme":         theme.Resolve(settings),
 		"themes":        theme.Themes,
 		"authenticated": s.Username != "" && s.Password != "",
@@ -180,12 +180,10 @@ func (s *Server) handleFolder(c *router.Context) {
 			c.Out.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		if body.Title != nil {
-			s.db.RenameFolder(id, *body.Title)
-		}
-		if body.IsExpanded != nil {
-			s.db.ToggleFolderExpanded(id, *body.IsExpanded)
-		}
+		s.db.UpdateFolder(id, storage.UpdateFolderParams{
+			Title:      body.Title,
+			IsExpanded: body.IsExpanded,
+		})
 		c.Out.WriteHeader(http.StatusOK)
 	} else if c.Req.Method == "DELETE" {
 		s.db.DeleteFolder(id)
@@ -203,7 +201,15 @@ func (s *Server) handleFeedRefresh(c *router.Context) {
 }
 
 func (s *Server) handleFeedErrors(c *router.Context) {
-	errors := s.db.GetFeedErrors()
+	errors := make(map[int64]string)
+	states, err := s.db.ListFeedStates()
+	if err == nil {
+		for _, state := range states {
+			if state.LastError != "" {
+				errors[state.FeedID] = state.LastError
+			}
+		}
+	}
 	c.JSON(http.StatusOK, errors)
 }
 
@@ -281,17 +287,15 @@ func (s *Server) handleFeedList(c *router.Context) {
 				map[string]any{"status": "multiple", "choice": result.Sources},
 			)
 		case result.Feed != nil:
-			feed := s.db.CreateFeed(
-				result.Feed.Title,
-				"",
-				result.Feed.SiteURL,
-				result.FeedLink,
-				form.FolderID,
-			)
+			feed := s.db.CreateFeed(storage.CreateFeedParams{
+				Title:    result.Feed.Title,
+				Link:     result.Feed.SiteURL,
+				FeedLink: result.FeedLink,
+				FolderID: form.FolderID,
+			})
 			items := worker.ConvertItems(result.Feed.Items, *feed)
 			if len(items) > 0 {
 				s.db.CreateItems(items)
-				s.db.SyncSearch()
 			}
 			s.worker.FindFeedFavicon(*feed)
 
@@ -323,24 +327,28 @@ func (s *Server) handleFeed(c *router.Context) {
 			c.Out.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		params := storage.UpdateFeedParams{}
 		if title, ok := body["title"]; ok {
 			if reflect.TypeOf(title).Kind() == reflect.String {
-				s.db.RenameFeed(id, title.(string))
+				t := title.(string)
+				params.Title = &t
 			}
 		}
 		if f_id, ok := body["folder_id"]; ok {
 			if f_id == nil {
-				s.db.UpdateFeedFolder(id, nil)
+				params.FolderID = storage.SetNullable[int64](nil)
 			} else if reflect.TypeOf(f_id).Kind() == reflect.Float64 {
 				folderId := int64(f_id.(float64))
-				s.db.UpdateFeedFolder(id, &folderId)
+				params.FolderID = storage.SetNullable(&folderId)
 			}
 		}
 		if link, ok := body["feed_link"]; ok {
 			if reflect.TypeOf(link).Kind() == reflect.String {
-				s.db.UpdateFeedLink(id, link.(string))
+				l := link.(string)
+				params.FeedLink = &l
 			}
 		}
+		s.db.UpdateFeed(id, params)
 		c.Out.WriteHeader(http.StatusOK)
 	} else if c.Req.Method == "DELETE" {
 		s.db.DeleteFeed(id)
@@ -456,25 +464,24 @@ const aiAPIKeyMask = "***"
 func (s *Server) handleSettings(c *router.Context) {
 	if c.Req.Method == "GET" {
 		settings := s.db.GetSettings()
-		if key, ok := settings["ai_api_key"].(string); ok && key != "" {
-			settings["ai_api_key"] = aiAPIKeyMask
+		m := settings.Map()
+		if key, ok := m["ai_api_key"].(string); ok && key != "" {
+			m["ai_api_key"] = aiAPIKeyMask
 		}
-		c.JSON(http.StatusOK, settings)
+		c.JSON(http.StatusOK, m)
 	} else if c.Req.Method == "PUT" {
-		settings := make(map[string]any)
-		if err := json.NewDecoder(c.Req.Body).Decode(&settings); err != nil {
+		var params storage.UpdateSettingsParams
+		if err := json.NewDecoder(c.Req.Body).Decode(&params); err != nil {
 			c.Out.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		// Preserve existing API key when client sends the mask sentinel.
-		if v, ok := settings["ai_api_key"]; ok {
-			if s, ok := v.(string); ok && s == aiAPIKeyMask {
-				delete(settings, "ai_api_key")
-			}
+		if params.AiApiKey != nil && *params.AiApiKey == aiAPIKeyMask {
+			params.AiApiKey = nil
 		}
-		if s.db.UpdateSettings(settings) {
-			if _, ok := settings["refresh_rate"]; ok {
-				s.worker.SetRefreshRate(s.db.GetSettingsValueInt64("refresh_rate"))
+		if s.db.UpdateSettings(params) {
+			if params.RefreshRate != nil {
+				s.worker.SetRefreshRate(s.db.GetSettings().RefreshRate)
 			}
 			c.Out.WriteHeader(http.StatusOK)
 		} else {
@@ -578,16 +585,24 @@ func (s *Server) handleOPMLImport(c *router.Context) {
 			return
 		}
 		for _, f := range doc.Feeds {
-			s.db.CreateFeed(f.Title, "", f.SiteUrl, f.FeedUrl, nil)
+			s.db.CreateFeed(storage.CreateFeedParams{
+				Title:    f.Title,
+				Link:     f.SiteUrl,
+				FeedLink: f.FeedUrl,
+			})
 		}
 		for _, f := range doc.Folders {
 			folder := s.db.CreateFolder(f.Title)
 			for _, ff := range f.AllFeeds() {
-				s.db.CreateFeed(ff.Title, "", ff.SiteUrl, ff.FeedUrl, &folder.Id)
+				s.db.CreateFeed(storage.CreateFeedParams{
+					Title:    ff.Title,
+					Link:     ff.SiteUrl,
+					FeedLink: ff.FeedUrl,
+					FolderID: &folder.Id,
+				})
 			}
 		}
 
-		s.worker.FindFavicons()
 		s.worker.RefreshFeeds()
 
 		c.Out.WriteHeader(http.StatusOK)
