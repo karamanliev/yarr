@@ -417,8 +417,13 @@ var vm = new Vue({
       'language': s.language,
       'languages': [
         {code: 'en', name: 'English' },
-        {code: 'zh', name: '简体中文'},
+        {code: 'de', name: 'Deutsch'},
+        {code: 'es', name: 'Español'},
+        {code: 'fr', name: 'Français'},
+        {code: 'ja', name: '日本語'},
+        {code: 'pt', name: 'Português'},
         {code: 'ru', name: 'Русский'},
+        {code: 'zh', name: '简体中文'},
       ]
     }
   },
@@ -824,7 +829,7 @@ var vm = new Vue({
       })
     },
     moveFeedToNewFolder: function(feed) {
-      var title = prompt('Enter folder name:')
+      var title = prompt(this.$t('prompt_folder_name'))
       if (!title) return
       api.folders.create({'title': title}).then(function(folder) {
         api.feeds.update(feed.id, {folder_id: folder.id}).then(function() {
@@ -835,7 +840,7 @@ var vm = new Vue({
       })
     },
     createNewFeedFolder: function() {
-      var title = prompt('Enter folder name:')
+      var title = prompt(this.$t('prompt_folder_name'))
       if (!title) return
       api.folders.create({'title': title}).then(function(result) {
         vm.refreshFeeds().then(function() {
@@ -848,7 +853,7 @@ var vm = new Vue({
       })
     },
     renameFolder: function(folder) {
-      var newTitle = prompt('Enter new title', folder.title)
+      var newTitle = prompt(this.$t('prompt_new_title'), folder.title)
       if (newTitle) {
         api.folders.update(folder.id, {title: newTitle}).then(function() {
           folder.title = newTitle
@@ -859,7 +864,7 @@ var vm = new Vue({
       }
     },
     deleteFolder: function(folder) {
-      if (confirm('Are you sure you want to delete ' + folder.title + '?')) {
+      if (confirm(this.$t('confirm_delete', {name: folder.title}))) {
         api.folders.delete(folder.id).then(function() {
           vm.feedSelected = null
           vm.refreshStats()
@@ -868,7 +873,7 @@ var vm = new Vue({
       }
     },
     updateFeedLink: function(feed) {
-      var newLink = prompt('Enter feed link', feed.feed_link)
+      var newLink = prompt(this.$t('prompt_feed_link'), feed.feed_link)
       if (newLink) {
         api.feeds.update(feed.id, {feed_link: newLink}).then(function() {
           feed.feed_link = newLink
@@ -876,7 +881,7 @@ var vm = new Vue({
       }
     },
     renameFeed: function(feed) {
-      var newTitle = prompt('Enter new title', feed.title)
+      var newTitle = prompt(this.$t('prompt_new_title'), feed.title)
       if (newTitle) {
         api.feeds.update(feed.id, {title: newTitle}).then(function() {
           feed.title = newTitle
@@ -884,7 +889,7 @@ var vm = new Vue({
       }
     },
     deleteFeed: function(feed) {
-      if (confirm('Are you sure you want to delete ' + feed.title + '?')) {
+      if (confirm(this.$t('confirm_delete', {name: feed.title}))) {
         api.feeds.delete(feed.id).then(function() {
           vm.feedSelected = null
           vm.refreshStats()

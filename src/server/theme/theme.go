@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/nkanaev/yarr/src/assets"
-	"github.com/nkanaev/yarr/src/storage"
+	"github.com/nkanaev/yarr/src/storage/model"
 )
 
 type Entry struct {
@@ -90,7 +90,7 @@ func pickOrFallback(entries []Entry, key, fallbackKey string) string {
 	return "#000000"
 }
 
-func Resolve(settings storage.Settings) map[string]string {
+func Resolve(settings model.Settings) map[string]string {
 	mode := settings.ThemeMode
 	if mode != "light" && mode != "dark" {
 		mode = "dark"

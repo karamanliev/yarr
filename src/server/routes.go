@@ -21,7 +21,7 @@ import (
 	"github.com/nkanaev/yarr/src/server/opml"
 	"github.com/nkanaev/yarr/src/server/router"
 	"github.com/nkanaev/yarr/src/server/theme"
-	"github.com/nkanaev/yarr/src/storage"
+	"github.com/nkanaev/yarr/src/storage/model"
 	"github.com/nkanaev/yarr/src/worker"
 )
 
@@ -180,7 +180,7 @@ func (s *Server) handleFolder(c *router.Context) {
 			c.Out.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		s.db.UpdateFolder(id, storage.UpdateFolderParams{
+		s.db.UpdateFolder(id, model.UpdateFolderParams{
 			Title:      body.Title,
 			IsExpanded: body.IsExpanded,
 		})
@@ -287,7 +287,7 @@ func (s *Server) handleFeedList(c *router.Context) {
 				map[string]any{"status": "multiple", "choice": result.Sources},
 			)
 		case result.Feed != nil:
-			feed := s.db.CreateFeed(storage.CreateFeedParams{
+			feed := s.db.CreateFeed(model.CreateFeedParams{
 				Title:    result.Feed.Title,
 				Link:     result.Feed.SiteURL,
 				FeedLink: result.FeedLink,
@@ -327,7 +327,7 @@ func (s *Server) handleFeed(c *router.Context) {
 			c.Out.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		params := storage.UpdateFeedParams{}
+		params := model.UpdateFeedParams{}
 		if title, ok := body["title"]; ok {
 			if reflect.TypeOf(title).Kind() == reflect.String {
 				t := title.(string)
@@ -336,10 +336,10 @@ func (s *Server) handleFeed(c *router.Context) {
 		}
 		if f_id, ok := body["folder_id"]; ok {
 			if f_id == nil {
-				params.FolderID = storage.SetNullable[int64](nil)
+				params.FolderID = model.SetNullable[int64](nil)
 			} else if reflect.TypeOf(f_id).Kind() == reflect.Float64 {
 				folderId := int64(f_id.(float64))
-				params.FolderID = storage.SetNullable(&folderId)
+				params.FolderID = model.SetNullable(&folderId)
 			}
 		}
 		if link, ok := body["feed_link"]; ok {
@@ -405,7 +405,7 @@ func (s *Server) handleItemList(c *router.Context) {
 		perPage := 20
 		query := c.Req.URL.Query()
 
-		filter := storage.ItemFilter{}
+		filter := model.ItemFilter{}
 		if folderID, err := c.QueryInt64("folder_id"); err == nil {
 			filter.FolderID = &folderID
 		}
@@ -416,7 +416,7 @@ func (s *Server) handleItemList(c *router.Context) {
 			filter.After = &after
 		}
 		if status := query.Get("status"); len(status) != 0 {
-			statusValue := storage.StatusValues[status]
+			statusValue := model.StatusValues[status]
 			filter.Status = &statusValue
 		}
 		if search := query.Get("search"); len(search) != 0 {
@@ -442,7 +442,7 @@ func (s *Server) handleItemList(c *router.Context) {
 			"has_more": hasMore,
 		})
 	} else if c.Req.Method == "PUT" {
-		filter := storage.MarkFilter{}
+		filter := model.MarkFilter{}
 
 		if folderID, err := c.QueryInt64("folder_id"); err == nil {
 			filter.FolderID = &folderID
@@ -470,7 +470,7 @@ func (s *Server) handleSettings(c *router.Context) {
 		}
 		c.JSON(http.StatusOK, m)
 	} else if c.Req.Method == "PUT" {
-		var params storage.UpdateSettingsParams
+		var params model.UpdateSettingsParams
 		if err := json.NewDecoder(c.Req.Body).Decode(&params); err != nil {
 			c.Out.WriteHeader(http.StatusBadRequest)
 			return
@@ -585,7 +585,7 @@ func (s *Server) handleOPMLImport(c *router.Context) {
 			return
 		}
 		for _, f := range doc.Feeds {
-			s.db.CreateFeed(storage.CreateFeedParams{
+			s.db.CreateFeed(model.CreateFeedParams{
 				Title:    f.Title,
 				Link:     f.SiteUrl,
 				FeedLink: f.FeedUrl,
@@ -594,7 +594,7 @@ func (s *Server) handleOPMLImport(c *router.Context) {
 		for _, f := range doc.Folders {
 			folder := s.db.CreateFolder(f.Title)
 			for _, ff := range f.AllFeeds() {
-				s.db.CreateFeed(storage.CreateFeedParams{
+				s.db.CreateFeed(model.CreateFeedParams{
 					Title:    ff.Title,
 					Link:     ff.SiteUrl,
 					FeedLink: ff.FeedUrl,
@@ -618,7 +618,7 @@ func (s *Server) handleOPMLExport(c *router.Context) {
 
 		doc := opml.Folder{}
 
-		feedsByFolderID := make(map[int64][]*storage.Feed)
+		feedsByFolderID := make(map[int64][]*model.Feed)
 		for _, feed := range s.db.ListFeeds() {
 			if feed.FolderId == nil {
 				doc.Feeds = append(doc.Feeds, opml.Feed{

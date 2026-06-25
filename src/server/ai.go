@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nkanaev/yarr/src/storage"
+	"github.com/nkanaev/yarr/src/storage/model"
 )
 
 const defaultAISystemPrompt = `You are a meticulous article summarizer for an RSS reader. Produce short, high-signal summaries that are accurate, neutral, and easy to scan.
@@ -50,7 +50,7 @@ type aiConfig struct {
 // buildAIConfig extracts AI settings from the stored settings.
 // Returns (cfg, configured). `configured` is true when endpoint, api key
 // and model are all non-empty.
-func buildAIConfig(settings storage.Settings) (aiConfig, bool) {
+func buildAIConfig(settings model.Settings) (aiConfig, bool) {
 	cfg := aiConfig{
 		Endpoint: strings.TrimSpace(settings.AiEndpoint),
 		APIKey:   strings.TrimSpace(settings.AiApiKey),

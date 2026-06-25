@@ -115,6 +115,7 @@
                                 v-for="entry in accents">
                             <span class="icon" v-if="theme.accent == entry.key">{% inline "check.svg" %}</span>
                         </button>
+                        </button>
                     </div>
 
                     <div class="dropdown-divider"></div>
@@ -172,14 +173,20 @@
                         {{ $t('shortcuts') }}
                     </button>
                     <div class="dropdown-divider"></div>
-                    <header class="dropdown-header" role="heading" aria-level="2">ᚨ / 𐎠 / 𑖀</header>
-                    <button
-                        v-for="lang in languages"
-                        class="dropdown-item"
-                        :class="{active: language==lang.code}"
-                        @click.stop="changeLanguage(lang.code)">
-                            {{ lang.name }}
-                    </button>
+                    <header class="dropdown-header" role="heading" aria-level="2">A / あ / 文</header>
+                    <div class="container">
+                        <div class="row">
+                            <button
+                                v-for="lang in languages"
+                                class="dropdown-item text-center col-3 px-0"
+                                :aria-label="lang.name"
+                                :title="lang.name"
+                                :class="{active: language==lang.code}"
+                                @click.stop="changeLanguage(lang.code)">
+                                    {{ lang.code }}
+                            </button>
+                        </div>
+                    </div>
                     <div class="dropdown-divider" v-if="authenticated"></div>
                     <button class="dropdown-item" v-if="authenticated" @click="logout()">
                         <span class="icon mr-1">{% inline "log-out.svg" %}</span>
@@ -235,7 +242,7 @@
             </div>
             <div class="p-2 toolbar d-flex align-items-center border-top flex-shrink-0" v-if="loading.feeds">
                 <span class="icon loading mx-2"></span>
-                <span class="text-truncate cursor-default noselect">{{ $t('refreshing') }} ({{ loading.feeds }} {{ $t('left') }})</span>
+                <span class="text-truncate cursor-default noselect">{{ $t('refreshing_progress', {count: loading.feeds}) }}</span>
             </div>
         </div>
         <!-- item list -->
@@ -548,6 +555,7 @@
     </div>
     <!-- external -->
     <script src="./static/javascripts/vue.min.js"></script>
+    <script src="./static/javascripts/fluent.js"></script>
     <!-- internal -->
     <script src="./static/javascripts/i18n.js"></script>
     <script src="./static/javascripts/api.js"></script>

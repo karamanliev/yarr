@@ -43,8 +43,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
           tags: |
+            type=ref,event=branch
             type=ref,event=tag
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=bleeding,enable=${{ github.ref_name == 'master' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
